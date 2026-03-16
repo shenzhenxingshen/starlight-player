@@ -1,0 +1,7 @@
+{
+  "name": "守月亮念佛机-0313",
+  "description": "A Buddhist chanting application with a serene Zen aesthetic, featuring track management, loop settings, and meditation timers.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

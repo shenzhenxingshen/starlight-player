@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>守月亮念佛机</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Ma+Shan+Zheng&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "zen-brown": "#2C1E12",
+                        "zen-dark": "#1A0F08",
+                        "gold-light": "#F9Eea5",
+                        "gold-main": "#D4AF37",
+                        "gold-dark": "#8C6A28",
+                        "amber-glow": "rgba(255, 191, 0, 0.3)",
+                        "background-dark": "#1a1208",
+                        "surface-dark": "#2a2118",
+                    },
+                    fontFamily: {
+                        "serif": ["Noto Serif SC", "serif"],
+                        "calligraphy": ["Ma Shan Zheng", "cursive"],
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    backgroundImage: {
+                        'wood-grain': "url('data:image/svg+xml,%3Csvg width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cfilter id=\\'noise\\'%3E%3CfeTurbulence type=\\'fractalNoise\\' baseFrequency=\\'0.8\\' numOctaves=\\'3\\' stitchTiles=\\'stitch\\'/%3E%3C/filter%3E%3Crect width=\\'100\\' height=\\'100\\' filter=\\'url(%23noise)\\' opacity=\\'0.08\\'/%3E%3C/svg%3E')",
+                        'gold-metal': "linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #b38728 50%, #fbf5b7 75%, #aa771c 100%)",
+                        'dark-gradient': 'linear-gradient(to bottom, #221b10, #1a1208)',
+                    },
+                    animation: {
+                        'spin-slow': 'spin 60s linear infinite',
+                        'pulse-gentle': 'pulse-gentle 4s ease-in-out infinite',
+                        'aura-breath': 'aura-breath 6s ease-in-out infinite',
+                        'smoke-flow': 'smoke-flow 20s linear infinite',
+                        'lotus-float': 'lotus-float 8s ease-in-out infinite',
+                        'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        'pulse-gentle': {
+                            '0%, 100%': { opacity: 0.4 },
+                            '50%': { opacity: 0.8 },
+                        },
+                        'aura-breath': {
+                            '0%, 100%': { transform: 'scale(1)', opacity: 0.1 },
+                            '50%': { transform: 'scale(1.15)', opacity: 0.3 },
+                        },
+                        'smoke-flow': {
+                            '0%': { transform: 'translate(0, 0) scale(1)', opacity: 0 },
+                            '10%': { opacity: 0.4 },
+                            '50%': { transform: 'translate(10%, -10%) scale(1.1)', opacity: 0.3 },
+                            '90%': { opacity: 0.4 },
+                            '100%': { transform: 'translate(20%, -20%) scale(1.2)', opacity: 0 },
+                        },
+                        'lotus-float': {
+                            '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+                            '50%': { transform: 'translateY(-20px) rotate(5deg)' },
+                        },
+                        'glow-pulse': {
+                            '0%, 100%': { textShadow: '0 0 10px rgba(212, 175, 55, 0.4)' },
+                            '50%': { textShadow: '0 0 25px rgba(212, 175, 55, 0.9), 0 0 10px rgba(212, 175, 55, 0.5)' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-gold {
+                background: linear-gradient(to bottom, #F9Eea5, #D4AF37);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .text-gold-glow {
+                @apply animate-glow-pulse;
+                color: #F9Eea5;
+            }
+            .metal-btn {
+                background: linear-gradient(145deg, #2a1f16, #150f0a);
+                box-shadow: 5px 5px 10px #0b0805, -5px -5px 10px #35261b;
+                border: 1px solid rgba(212, 175, 55, 0.1);
+            }
+            .glass-panel {
+                @apply bg-white/[0.03] backdrop-blur-2xl border border-white/10;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+                position: relative;
+                overflow: hidden;
+            }
+            .glass-panel::after {
+                content: "";
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.05) 50%, transparent 55%);
+                pointer-events: none;
+                transform: rotate(var(--tilt, 0deg));
+                transition: transform 0.5s ease-out;
+            }
+            .gold-ring {
+                background: conic-gradient(from 180deg at 50% 50%, #8C6A28 0deg, #F9Eea5 90deg, #D4AF37 180deg, #F9Eea5 270deg, #8C6A28 360deg);
+                padding: 2px;
+            }
+            .halo-effect {
+                box-shadow: 0 0 60px rgba(212, 175, 55, 0.15), inset 0 0 40px rgba(0,0,0,0.8);
+            }
+            .badge-texture {
+                background: radial-gradient(ellipse farthest-corner at right bottom, #FEDB37 0%, #FDB931 8%, #9f7928 30%, #8A6E2F 40%, transparent 80%),
+                            radial-gradient(ellipse farthest-corner at left top, #FFFFFF 0%, #FFFFAC 8%, #D1B464 25%, #5d4a1f 62.5%, #5d4a1f 100%);
+                box-shadow: inset 0 0 2px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
+                border: 1px solid #7c6428;
+            }
+            .perspective-1000 {
+                perspective: 1000px;
+            }
+            .preserve-3d {
+                transform-style: preserve-3d;
+            }
+            .backface-hidden {
+                backface-visibility: hidden;
+            }
+            .rotate-y-180 {
+                transform: rotateY(180deg);
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+        body {
+            @apply bg-zen-dark text-stone-200 font-serif min-h-screen overflow-x-hidden;
+            background-image: radial-gradient(circle at 50% 30%, #2e2014 0%, #0f0a06 80%);
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #1A0F08; }
+        ::-webkit-scrollbar-thumb { background: #3d2b1f; border-radius: 2px; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(reg => {
+                    console.log('SW registered:', reg);
+                }).catch(err => {
+                    console.log('SW registration failed:', err);
+                });
+            });
+        }
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

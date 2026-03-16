@@ -1,0 +1,9 @@
+{
+  "appId": "com.shouyueliang.nianfoji",
+  "appName": "守月亮念佛机",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
