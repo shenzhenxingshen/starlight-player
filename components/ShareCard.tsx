@@ -24,7 +24,7 @@ const ShareCard: React.FC<ShareCardProps> = ({ quote, onClose }) => {
               <div className="absolute inset-0 bg-gold-main/20 blur-2xl rounded-[28%] scale-110"></div>
               <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl relative z-10 border border-gold-main/20 bg-black/40">
                 <img 
-                  src="https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/nianfoji-logo-v6.png" 
+                  src="/assets/images/nianfoji-logo-v6.png" 
                   alt="守月亮念佛机 Logo" 
                   className="w-full h-full object-cover block scale-110 transition-transform duration-700"
                 />

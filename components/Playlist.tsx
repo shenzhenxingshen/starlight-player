@@ -160,7 +160,7 @@ const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLa
       title: newTrackTitle,
       subtitle: addMethod === 'file' ? '本地上传' : '网络链接',
       section: 'CUSTOM',
-      imageUrl: 'https://www.shouyueliang.org/wp-content/uploads/2021/04/1623587633-v500-4-1.gif',
+      imageUrl: '/assets/images/cover.gif',
       audioUrl: newTrackUrl
     };
 

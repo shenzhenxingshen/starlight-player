@@ -2,124 +2,124 @@
 import { Track } from './types';
 import { LYRICS_DATA } from './lyricsData';
 
-// 热链接图片资源
-const IMAGE_DABEI = 'https://www.shouyueliang.org/wp-content/uploads/2021/04/1623587633-v500-4-1.gif';
-const IMAGE_AMITABHA = 'https://www.shouyueliang.org/wp-content/uploads/2021/04/1623587633-v500-4-1.gif';
-const IMAGE_GUANYIN = 'https://www.shouyueliang.org/wp-content/uploads/2021/04/1623587633-v500-4-1.gif';
-const IMAGE_SONG = 'https://www.shouyueliang.org/wp-content/uploads/2021/04/1623587633-v500-4-1.gif';
+// 本地图片资源
+const IMAGE_DABEI = '/assets/images/cover.gif';
+const IMAGE_AMITABHA = '/assets/images/cover.gif';
+const IMAGE_GUANYIN = '/assets/images/cover.gif';
+const IMAGE_SONG = '/assets/images/cover.gif';
 
 export const TRACKS: Track[] = [
   // A: 大悲咒系列
   { 
     id: 'a01', code: 'A01', title: '大悲咒（跟我学）', subtitle: '', section: 'A', 
     imageUrl: IMAGE_DABEI, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/A01%20%E5%A4%A7%E6%82%B2%E5%92%92%EF%BC%88%E8%B7%9F%E6%88%91%E5%AD%A6%EF%BC%89.mp3'
+    audioUrl: '/assets/audio/A01 大悲咒（跟我学）.mp3'
   },
   { 
     id: 'a02', code: 'A02', title: '大悲咒（唱版）', subtitle: '', section: 'A', 
     imageUrl: IMAGE_DABEI, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/A02%20%E5%A4%A7%E6%82%B2%E5%92%92%EF%BC%88%E5%94%B1%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/A02 大悲咒（唱版）.mp3' 
   },
   { 
     id: 'a03', code: 'A03', title: '大悲咒（慢版）', subtitle: '', section: 'A', 
     imageUrl: IMAGE_DABEI, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/A03%20%E5%A4%A7%E6%82%B2%E5%92%92%EF%BC%88%E6%85%A2%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/A03 大悲咒（慢版）.mp3' 
   },
   { 
     id: 'a04', code: 'A04', title: '大悲咒（快版）', subtitle: '', section: 'A', 
     imageUrl: IMAGE_DABEI, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/A04%20%E5%A4%A7%E6%82%B2%E5%92%92%EF%BC%88%E5%BF%AB%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/A04 大悲咒（快版）.mp3' 
   },
   { 
     id: 'a05', code: 'A05', title: '大悲咒（共修版）', subtitle: '', section: 'A', 
     imageUrl: IMAGE_DABEI, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/A05%20%E5%A4%A7%E6%82%B2%E5%92%92%EF%BC%88%E5%85%B1%E4%BF%AE%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/A05 大悲咒（共修版）.mp3' 
   },
 
   // B: 仪轨回向
   { 
     id: 'b06', code: 'B06', title: '发愿回向文', subtitle: '', section: 'B', 
     imageUrl: IMAGE_GUANYIN, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/B06%20%E5%8F%91%E6%84%BF%E5%9B%9E%E5%90%91%E6%96%87.mp3' 
+    audioUrl: '/assets/audio/B06 发愿回向文.mp3' 
   },
 
   // C: 佛号圣号
   { 
     id: 'c07', code: 'C07', title: '南无阿弥陀佛（唱版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_AMITABHA, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C07%20%E5%8D%97%E6%97%A0%E9%98%BF%E5%BC%A5%E9%99%80%E4%BD%9B%EF%BC%88%E5%94%B1%E7%89%88%EF%BC%89.mp3'
+    audioUrl: '/assets/audio/C07 南无阿弥陀佛（唱版）.mp3'
   },
   { 
     id: 'c08', code: 'C08', title: '南无阿弥陀佛（慢版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_AMITABHA, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C08%20%E5%8D%97%E6%97%A0%E9%98%BF%E5%BC%A5%E9%99%80%E4%BD%9B%EF%BC%88%E6%85%A2%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/C08 南无阿弥陀佛（慢版）.mp3' 
   },
   { 
     id: 'c09', code: 'C09', title: '南无阿弥陀佛（快版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_AMITABHA, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C09%20%E5%8D%97%E6%97%A0%E9%98%BF%E5%BC%A5%E9%99%80%E4%BD%9B%EF%BC%88%E5%BF%AB%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/C09 南无阿弥陀佛（快版）.mp3' 
   },
   { 
     id: 'c10', code: 'C10', title: '阿弥陀佛（唱版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_AMITABHA, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C10%20%E9%98%BF%E5%BC%A5%E9%99%80%E4%BD%9B%EF%BC%88%E5%94%B1%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/C10 阿弥陀佛（唱版）.mp3' 
   },
   { 
     id: 'c11', code: 'C11', title: '阿弥陀佛（慢版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_AMITABHA, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C11%20%E9%98%BF%E5%BC%A5%E9%99%80%E4%BD%9B%EF%BC%88%E6%85%A2%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/C11 阿弥陀佛（慢版）.mp3' 
   },
   { 
     id: 'c12', code: 'C12', title: '阿弥陀佛（快版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_AMITABHA, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C12%20%E9%98%BF%E5%BC%A5%E9%99%80%E4%BD%9B%EF%BC%88%E5%BF%AB%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/C12 阿弥陀佛（快版）.mp3' 
   },
   { 
     id: 'c13', code: 'C13', title: '南无观世音菩萨（唱版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_GUANYIN, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C13%20%E5%8D%97%E6%97%A0%E8%A7%82%E4%B8%96%E9%9F%B3%E8%8F%A9%E8%90%A8%EF%BC%88%E5%94%B1%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/C13 南无观世音菩萨（唱版）.mp3' 
   },
   { 
     id: 'c14', code: 'C14', title: '南无观世音菩萨（慢版）', subtitle: '', section: 'C', 
     imageUrl: IMAGE_GUANYIN, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/C14%20%E5%8D%97%E6%97%A0%E8%A7%82%E4%B8%96%E9%9F%B3%E8%8F%A9%E8%90%A8%EF%BC%88%E6%85%A2%E7%89%88%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/C14 南无观世音菩萨（慢版）.mp3' 
   },
 
   // D: 期盼歌曲
   { 
     id: 'd15', code: 'D15', title: '期盼（歌曲）', subtitle: '', section: 'D', 
     imageUrl: IMAGE_SONG, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/D15%20%E6%9C%9F%E7%9B%BC%EF%BC%88%E6%AD%8C%E6%9B%B2%EF%BC%89.mp3' 
+    audioUrl: '/assets/audio/D15 期盼（歌曲）.mp3' 
   },
   { 
     id: 'd16', code: 'D16', title: '回向偈', subtitle: '', section: 'D', 
     imageUrl: IMAGE_SONG, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/D16%20%E5%9B%9E%E5%90%91%E5%81%88.mp3' 
+    audioUrl: '/assets/audio/D16 回向偈.mp3' 
   },
   { 
     id: 'd17', code: 'D17', title: '观音灵感歌', subtitle: '', section: 'D', 
     imageUrl: IMAGE_SONG, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/D17%20%E8%A7%82%E9%9F%B3%E7%81%B5%E6%84%9F%E6%AD%8C.mp3' 
+    audioUrl: '/assets/audio/D17 观音灵感歌.mp3' 
   },
   { 
     id: 'd18', code: 'D18', title: '观音菩萨如秋月', subtitle: '', section: 'D', 
     imageUrl: IMAGE_SONG, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/D18%20%E8%A7%82%E9%9F%B3%E8%8F%A9%E8%90%A8%E5%A6%82%E7%A7%8B%E6%9C%88.mp3' 
+    audioUrl: '/assets/audio/D18 观音菩萨如秋月.mp3' 
   },
   { 
     id: 'd19', code: 'D19', title: '一声佛号一声心', subtitle: '', section: 'D', 
     imageUrl: IMAGE_SONG, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/D19%20%E4%B8%80%E5%A3%B0%E4%BD%9B%E5%8F%B7%E4%B8%80%E5%A3%B0%E5%BF%83.mp3' 
+    audioUrl: '/assets/audio/D19 一声佛号一声心.mp3' 
   },
   { 
     id: 'd20', code: 'D20', title: '观音菩萨偈', subtitle: '', section: 'D', 
     imageUrl: IMAGE_SONG, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/mp3/D20%20%E8%A7%82%E9%9F%B3%E8%8F%A9%E8%90%A8%E5%81%88.mp3' 
+    audioUrl: '/assets/audio/D20 观音菩萨偈.mp3' 
   },
   { 
     id: 'd21', code: 'D21', title: '愿做菩萨那朵莲', subtitle: '', section: 'D', 
     imageUrl: IMAGE_SONG, 
-    audioUrl: 'https://shouyueliangplayermp3.s3.cn-south-1.jdcloud-oss.com/D21%20%E6%84%BF%E5%81%9A%E8%8F%A9%E8%90%A8%E9%82%A3%E6%9C%B5%E8%8E%B2.mp3' 
+    audioUrl: '/assets/audio/D21 愿做菩萨那朵莲.mp3' 
   }
 ].map(track => ({
   ...track,
