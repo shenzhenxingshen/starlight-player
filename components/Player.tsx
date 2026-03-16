@@ -25,9 +25,20 @@ const Player: React.FC<PlayerProps> = ({
   playbackRate, setPlaybackRate, isLargeText
 }) => {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [showVinyl, setShowVinyl] = useState(false);
+  const [showVinyl, setShowVinyl] = useState(() => {
+    try {
+      const saved = localStorage.getItem('zen_chant_show_vinyl');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
   const [showLyrics, setShowLyrics] = useState(false);
   const lastVolumeRef = useRef(volume > 0 ? volume : 0.65);
+
+  useEffect(() => {
+    localStorage.setItem('zen_chant_show_vinyl', JSON.stringify(showVinyl));
+  }, [showVinyl]);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
   const currentLyricIndex = track.lyrics?.findIndex((l, i) => {
@@ -191,12 +202,12 @@ const Player: React.FC<PlayerProps> = ({
                         </div>
                       )}
                     </div>
-
-                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 text-[10px] text-gold-main/40 font-serif tracking-widest">
-                      <span className="material-symbols-outlined text-xs">image</span>
-                      <span>点击返回唱片</span>
-                    </div>
                   </div>
+                </div>
+                {/* 翻转提示 */}
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 text-[10px] text-gold-main/40 font-serif tracking-widest animate-pulse">
+                  <span className="material-symbols-outlined text-xs">image</span>
+                  <span>点击返回唱片</span>
                 </div>
               </div>
             </div>

@@ -124,14 +124,25 @@ const App: React.FC = () => {
   };
 
   const recordCompletion = (track: Track) => {
-    setStats(prev => ({
-      ...prev,
-      totalCompletions: prev.totalCompletions + 1,
-      dailyLogs: {
-        ...prev.dailyLogs,
-        [new Date().toISOString().split('T')[0]]: (prev.dailyLogs[new Date().toISOString().split('T')[0]] || 0) + 1
-      }
-    }));
+    setStats(prev => {
+      const today = new Date().toISOString().split('T')[0];
+      // 兼容旧数据格式：如果以前存的是数字，重置为对象
+      const currentDayLog = (typeof prev.dailyLogs[today] === 'object' && prev.dailyLogs[today] !== null)
+        ? prev.dailyLogs[today]
+        : {};
+        
+      return {
+        ...prev,
+        totalCompletions: prev.totalCompletions + 1,
+        dailyLogs: {
+          ...prev.dailyLogs,
+          [today]: {
+            ...currentDayLog,
+            [track.id]: (currentDayLog[track.id] || 0) + 1
+          }
+        }
+      };
+    });
   };
 
   const handleNext = () => {
@@ -155,13 +166,41 @@ const App: React.FC = () => {
     isSingleLoop,
     handleEnded
   } = useTaskPlayer(
-    currentTrack, 
-    () => audioRef.current, 
-    setIsPlaying, 
-    setShowMerit, 
-    recordCompletion, 
+    currentTrack,
+    () => audioRef.current,
+    setIsPlaying,
+    setShowMerit,
+    recordCompletion,
     handleNext
   );
+
+  // 任务模式：使用 audio.loop 保持后台连续播放，但通过时间回退检测来计次
+  const lastTimeRef = useRef(0);
+  const handleTaskTimeUpdate = () => {
+    // 原有的时间更新逻辑
+    handleTimeUpdate();
+    const audio = audioRef.current;
+    if (!audio) return;
+    const t = audio.currentTime;
+    const d = audio.duration || 0;
+
+    // 当任务模式激活时，检测一次循环边界（currentTime 从末尾回到起点）
+    if (isTaskActive && d > 0) {
+      if (t < lastTimeRef.current - 0.5) {
+        // 发生回绕，视为完成一遍
+        if (taskProgress >= taskTarget) {
+          recordCompletion(currentTrack);
+          stopTask();
+          setIsPlaying(false);
+          setShowMerit(true);
+        } else {
+          setTaskProgress(prev => prev + 1);
+          recordCompletion(currentTrack);
+        }
+      }
+    }
+    lastTimeRef.current = t;
+  };
 
   const renderContent = () => {
     switch (view) {
@@ -235,13 +274,13 @@ const App: React.FC = () => {
       <audio
         ref={audioRef}
         src={currentTrack.audioUrl}
-        onTimeUpdate={handleTimeUpdate}
+        onTimeUpdate={handleTaskTimeUpdate}
         onEnded={handleEnded}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onError={(e) => console.error("Audio error:", e)}
         crossOrigin="anonymous"
-        loop={playbackMode === PlaybackMode.SINGLE_LOOP || (isTaskActive && taskProgress < taskTarget)}
+        loop={playbackMode === PlaybackMode.SINGLE_LOOP || isTaskActive}
       />
 
       {renderContent()}
