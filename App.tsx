@@ -184,23 +184,34 @@ const App: React.FC = () => {
     const t = audio.currentTime;
     const d = audio.duration || 0;
 
-    // 当任务模式激活时，检测一次循环边界（currentTime 从末尾回到起点）
+    // 任务模式下使用 loop：通过“时间回绕”来判定完成一遍
+    // 防误判条件：上一时刻在末段(>70%时长) 且 当前时刻在前段(<30%时长)
     if (isTaskActive && d > 0) {
-      if (t < lastTimeRef.current - 0.5) {
-        // 发生回绕，视为完成一遍
+      const prev = lastTimeRef.current;
+      const reachedEndSegment = prev > d * 0.7;
+      const backToStartSegment = t < d * 0.3;
+      const crossed = reachedEndSegment && backToStartSegment;
+
+      if (crossed) {
+        // 完成一遍
         if (taskProgress >= taskTarget) {
           recordCompletion(currentTrack);
           stopTask();
           setIsPlaying(false);
           setShowMerit(true);
         } else {
-          setTaskProgress(prev => prev + 1);
+          setTaskProgress(prevCount => prevCount + 1);
           recordCompletion(currentTrack);
         }
       }
     }
     lastTimeRef.current = t;
   };
+
+  // 新任务/切曲/目标变化时重置回绕检测基准，确保任务从1开始且不读取旧状态
+  useEffect(() => {
+    lastTimeRef.current = 0;
+  }, [isTaskActive, currentTrack.id, taskTarget]);
 
   const renderContent = () => {
     switch (view) {

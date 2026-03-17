@@ -1,4 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* 本地字体声明 */
+/* Noto Serif SC 字体暂时禁用
 @font-face {
   font-family: 'Noto Serif SC';
   font-style: normal;
@@ -14,6 +19,7 @@
   src: url('/fonts/NotoSerifSC-Bold.woff2') format('woff2');
   font-display: swap;
 }
+*/
 
 @font-face {
   font-family: 'Ma Shan Zheng';

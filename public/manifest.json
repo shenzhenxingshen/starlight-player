@@ -1,0 +1,16 @@
+{
+  "name": "守月亮念佛机",
+  "short_name": "念佛机",
+  "description": "守月亮念佛机 - 专注念佛修行的智能助手",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1208",
+  "theme_color": "#1a1208",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
