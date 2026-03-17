@@ -75,6 +75,19 @@ const App: React.FC = () => {
     localStorage.setItem(STATS_KEY, JSON.stringify(stats));
   }, [stats]);
 
+  // 原生启动图：当应用就绪后隐藏 Splash（Capacitor 插件）
+  useEffect(() => {
+    const hideSplash = async () => {
+      try {
+        const { SplashScreen } = await import('@capacitor/splash-screen');
+        await SplashScreen.hide({ fadeOutDuration: 200 });
+      } catch (e) {
+        // 开发环境或未安装插件时静默忽略
+      }
+    };
+    hideSplash();
+  }, []);
+
   // Media Session API Integration
   useEffect(() => {
     if ('mediaSession' in navigator) {
