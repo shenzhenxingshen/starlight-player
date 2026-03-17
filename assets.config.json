@@ -5,7 +5,7 @@
         "sources": ["icon.png"]
       },
       "splash": {
-        "sources": ["splash.png"],
+        "sources": ["public/assets/images/splash-slogan-2732.png"],
         "backgroundColor": "#0a0705"
       }
     }
