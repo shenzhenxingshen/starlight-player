@@ -62,7 +62,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
     }
   }, [currentTrack.id]);
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  const togglePlay = () => setIsPlaying(prev => !prev);
 
   const seek = (time: number) => {
     if (audioRef.current) {

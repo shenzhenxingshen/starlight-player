@@ -24,7 +24,8 @@ export interface Track {
   subtitle: string;
   section: string;
   imageUrl: string;
-  audioUrl: string; 
+  audioUrl: string;
+  durationMs?: number;
   lyrics?: LyricLine[];
 }
 

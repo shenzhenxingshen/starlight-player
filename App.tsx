@@ -15,6 +15,7 @@ import { useTaskPlayer } from './hooks/useTaskPlayer';
 
 const STATS_KEY = 'zen_chant_user_stats';
 const CONFIG_KEY = 'zen_chant_config';
+const SYNC_MODE_KEY = 'zen_chant_sync_mode';
 const AUDIO_CACHE_NAME = 'zen-chant-audio';
 
 const App: React.FC = () => {
@@ -43,6 +44,15 @@ const App: React.FC = () => {
       return false;
     }
   });
+  const [syncMode, setSyncMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SYNC_MODE_KEY);
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+  const syncModeRef = useRef(syncMode);
 
   const {
     audioRef,
@@ -75,6 +85,20 @@ const App: React.FC = () => {
     localStorage.setItem(STATS_KEY, JSON.stringify(stats));
   }, [stats]);
 
+  useEffect(() => {
+    localStorage.setItem(SYNC_MODE_KEY, JSON.stringify(syncMode));
+  }, [syncMode]);
+
+  useEffect(() => {
+    syncModeRef.current = syncMode;
+  }, [syncMode]);
+
+  useEffect(() => {
+    if (syncMode && playbackRate !== 1.0) {
+      setPlaybackRate(1.0);
+    }
+  }, [syncMode, playbackRate, setPlaybackRate]);
+
   // 原生启动图：当应用就绪后隐藏 Splash（Capacitor 插件）
   useEffect(() => {
     const hideSplash = async () => {
@@ -103,10 +127,10 @@ const App: React.FC = () => {
       navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
 
       navigator.mediaSession.setActionHandler('play', () => {
-        togglePlay();
+        setIsPlaying(true);
       });
       navigator.mediaSession.setActionHandler('pause', () => {
-        togglePlay();
+        setIsPlaying(false);
       });
       navigator.mediaSession.setActionHandler('previoustrack', () => {
         handlePrev();
@@ -115,9 +139,13 @@ const App: React.FC = () => {
         handleNext();
       });
     }
-  }, [currentTrack, isPlaying, togglePlay]);
+  }, [currentTrack, isPlaying]);
 
   const handleTrackSelect = (track: Track) => {
+    if (syncMode) {
+      pendingSyncDurationMsRef.current = track.durationMs ?? null;
+      pendingSyncAutoplayRef.current = true;
+    }
     setCurrentTrack(track);
     setIsPlaying(true);
     setView(View.PLAYER);
@@ -127,8 +155,18 @@ const App: React.FC = () => {
   const handlePrev = () => {
     const idx = TRACKS.findIndex(t => t.id === currentTrack.id);
     if (idx !== -1) {
-      setCurrentTrack(TRACKS[(idx - 1 + TRACKS.length) % TRACKS.length]);
-      setIsPlaying(true);
+      const nextTrack = TRACKS[(idx - 1 + TRACKS.length) % TRACKS.length];
+      if (syncMode && isPlaying) {
+        pendingSyncDurationMsRef.current = nextTrack.durationMs ?? null;
+        pendingSyncAutoplayRef.current = true;
+      }
+      if (isTaskActive) {
+        stopTask();
+      }
+      setCurrentTrack(nextTrack);
+      if (isPlaying) {
+        setIsPlaying(true);
+      }
     }
   };
 
@@ -161,8 +199,18 @@ const App: React.FC = () => {
   const handleNext = () => {
     const idx = TRACKS.findIndex(t => t.id === currentTrack.id);
     if (idx !== -1) {
-      setCurrentTrack(TRACKS[(idx + 1) % TRACKS.length]);
-      setIsPlaying(true);
+      const nextTrack = TRACKS[(idx + 1) % TRACKS.length];
+      if (syncMode && isPlaying) {
+        pendingSyncDurationMsRef.current = nextTrack.durationMs ?? null;
+        pendingSyncAutoplayRef.current = true;
+      }
+      if (isTaskActive) {
+        stopTask();
+      }
+      setCurrentTrack(nextTrack);
+      if (isPlaying) {
+        setIsPlaying(true);
+      }
     }
   };
 
@@ -187,8 +235,163 @@ const App: React.FC = () => {
     handleNext
   );
 
-  // 任务模式：使用 audio.loop 保持后台连续播放，但通过时间回退检测来计次
+  // 使用 audio.loop + 时间回绕检测计次
   const lastTimeRef = useRef(0);
+  const lastManualSeekAtRef = useRef(0);
+  const pendingSyncDurationMsRef = useRef<number | null>(null);
+  const pendingSyncAutoplayRef = useRef(false);
+  const scheduledSyncStartTimerRef = useRef<number | null>(null);
+  const syncDriftFirstCheckTimerRef = useRef<number | null>(null);
+  const syncDriftIntervalRef = useRef<number | null>(null);
+
+  const handleToggleSyncMode = () => {
+    setSyncMode(prev => {
+      const next = !prev;
+      if (next) {
+        if (isTaskActive) {
+          stopTask();
+        }
+        setPlaybackRate(1.0);
+      } else {
+        clearScheduledSyncTimers();
+      }
+      return next;
+    });
+  };
+
+  const clearScheduledSyncTimers = () => {
+    if (scheduledSyncStartTimerRef.current !== null) {
+      window.clearTimeout(scheduledSyncStartTimerRef.current);
+      scheduledSyncStartTimerRef.current = null;
+    }
+    if (syncDriftFirstCheckTimerRef.current !== null) {
+      window.clearTimeout(syncDriftFirstCheckTimerRef.current);
+      syncDriftFirstCheckTimerRef.current = null;
+    }
+    if (syncDriftIntervalRef.current !== null) {
+      window.clearInterval(syncDriftIntervalRef.current);
+      syncDriftIntervalRef.current = null;
+    }
+  };
+
+  const getSyncStartSec = (durationMs?: number, epochMs: number = Date.now()): number | null => {
+    const resolvedDurationMs = durationMs ?? currentTrack.durationMs;
+    if (!resolvedDurationMs || resolvedDurationMs <= 0) return null;
+
+    const todayStart = new Date(epochMs);
+    todayStart.setHours(0, 0, 0, 0);
+    const elapsedMs = epochMs - todayStart.getTime();
+    const rawOffsetMs = ((elapsedMs % resolvedDurationMs) + resolvedDurationMs) % resolvedDurationMs;
+    const safeOffsetMs = Math.min(rawOffsetMs, Math.max(resolvedDurationMs - 120, 0));
+    return safeOffsetMs / 1000;
+  };
+
+  const alignToSyncTimeline = (durationMs?: number, epochMs: number = Date.now()) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const startSec = getSyncStartSec(durationMs, epochMs);
+    if (startSec === null) return;
+
+    audio.currentTime = startSec;
+    // 避免刚对齐后被回绕检测误判
+    lastTimeRef.current = audio.currentTime;
+    lastManualSeekAtRef.current = 0;
+  };
+
+  const runSyncDriftCorrection = (durationMs?: number) => {
+    const audio = audioRef.current;
+    if (!audio || audio.paused || !syncModeRef.current) return;
+    const expectedSec = getSyncStartSec(durationMs);
+    if (expectedSec === null) return;
+
+    const driftSec = audio.currentTime - expectedSec;
+    // 超过120ms才纠偏，避免抖动
+    if (Math.abs(driftSec) > 0.12) {
+      alignToSyncTimeline(durationMs);
+    }
+  };
+
+  const scheduleSyncedStart = (durationMs?: number, afterStart?: () => void) => {
+    clearScheduledSyncTimers();
+    const audio = audioRef.current;
+    if (!audio) {
+      setIsPlaying(true);
+      return;
+    }
+
+    const now = Date.now();
+    const boundaryMs = 1000;
+    const delayMs = boundaryMs - (now % boundaryMs);
+    const targetEpochMs = now + delayMs;
+
+    alignToSyncTimeline(durationMs, targetEpochMs);
+
+    scheduledSyncStartTimerRef.current = window.setTimeout(() => {
+      setIsPlaying(true);
+      afterStart?.();
+
+      // 起播后1.2秒做一次首次纠偏
+      syncDriftFirstCheckTimerRef.current = window.setTimeout(() => {
+        runSyncDriftCorrection(durationMs);
+      }, 1200);
+
+      // 每15秒做一次轻量纠偏
+      syncDriftIntervalRef.current = window.setInterval(() => {
+        runSyncDriftCorrection(durationMs);
+      }, 15000);
+    }, delayMs);
+  };
+
+  useEffect(() => {
+    if (!syncMode) {
+      clearScheduledSyncTimers();
+    }
+  }, [syncMode]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      clearScheduledSyncTimers();
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    return () => {
+      clearScheduledSyncTimers();
+    };
+  }, []);
+
+  const handleTogglePlay = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      clearScheduledSyncTimers();
+      return;
+    }
+    if (syncMode) {
+      scheduleSyncedStart(currentTrack.durationMs, () => setPlaybackRate(1.0));
+      return;
+    }
+    setIsPlaying(true);
+  };
+
+  const handleUpdateTarget = (target: number) => {
+    if (syncMode) {
+      // 策略B：同步任务从0开始，首次完整回绕计为1
+      const durationMs = currentTrack.durationMs;
+      const startSec = getSyncStartSec(durationMs) ?? 0;
+      updateTaskTarget(target, startSec, 0, false);
+      scheduleSyncedStart(durationMs, () => setPlaybackRate(1.0));
+    } else {
+      updateTaskTarget(target, 0, 1);
+    }
+  };
+
+  const handleManualSeek = (time: number) => {
+    if (syncMode) return;
+    lastManualSeekAtRef.current = Date.now();
+    seek(time);
+  };
+
   const handleTaskTimeUpdate = () => {
     // 原有的时间更新逻辑
     handleTimeUpdate();
@@ -197,23 +400,43 @@ const App: React.FC = () => {
     const t = audio.currentTime;
     const d = audio.duration || 0;
 
-    // 任务模式下使用 loop：通过“时间回绕”来判定完成一遍
-    // 防误判条件：上一时刻在末段(>70%时长) 且 当前时刻在前段(<30%时长)
-    if (isTaskActive && d > 0) {
+    // 使用 loop + 时间回绕检测计次
+    // 条件：上一时刻在末段(>70%时长) 且 当前时刻在前段(<30%时长)
+    if (d > 0) {
       const prev = lastTimeRef.current;
       const reachedEndSegment = prev > d * 0.7;
       const backToStartSegment = t < d * 0.3;
       const crossed = reachedEndSegment && backToStartSegment;
 
-      if (crossed) {
-        // 完成一遍
-        if (taskProgress >= taskTarget) {
-          recordCompletion(currentTrack);
-          stopTask();
-          setIsPlaying(false);
-          setShowMerit(true);
-        } else {
-          setTaskProgress(prevCount => prevCount + 1);
+      const isManualSeekWindow = Date.now() - lastManualSeekAtRef.current < 1500;
+      if (crossed && !isManualSeekWindow) {
+        if (isTaskActive) {
+          if (syncMode) {
+            // 策略B：同步任务从0开始，首次完整回绕计为1
+            const nextProgress = taskProgress + 1;
+            recordCompletion(currentTrack);
+
+            if (nextProgress >= taskTarget) {
+              stopTask();
+              setIsPlaying(false);
+              setShowMerit(true);
+            } else {
+              setTaskProgress(nextProgress);
+            }
+          } else {
+            // 普通任务：默认从1开始计
+            if (taskProgress >= taskTarget) {
+              recordCompletion(currentTrack);
+              stopTask();
+              setIsPlaying(false);
+              setShowMerit(true);
+            } else {
+              setTaskProgress(prevCount => prevCount + 1);
+              recordCompletion(currentTrack);
+            }
+          }
+        } else if (playbackMode === PlaybackMode.SINGLE_LOOP && isPlaying) {
+          // 普通循环模式：每次回绕计一遍
           recordCompletion(currentTrack);
         }
       }
@@ -221,10 +444,36 @@ const App: React.FC = () => {
     lastTimeRef.current = t;
   };
 
-  // 新任务/切曲/目标变化时重置回绕检测基准，确保任务从1开始且不读取旧状态
+  // 模式切换/切曲/目标变化时重置回绕检测基准，避免读取旧状态
   useEffect(() => {
     lastTimeRef.current = 0;
-  }, [isTaskActive, currentTrack.id, taskTarget]);
+    lastManualSeekAtRef.current = 0;
+  }, [playbackMode, isTaskActive, currentTrack.id, taskTarget]);
+
+  // 同步模式下切曲：在音频切换后立即对齐到同步时间轴
+  useEffect(() => {
+    if (!pendingSyncAutoplayRef.current) return;
+    if (!syncMode) {
+      pendingSyncAutoplayRef.current = false;
+      pendingSyncDurationMsRef.current = null;
+      return;
+    }
+
+    const audio = audioRef.current;
+    if (!audio) {
+      pendingSyncAutoplayRef.current = false;
+      pendingSyncDurationMsRef.current = null;
+      return;
+    }
+
+    const durationMs = pendingSyncDurationMsRef.current ?? currentTrack.durationMs;
+    if (durationMs && durationMs > 0) {
+      alignToSyncTimeline(durationMs);
+    }
+
+    pendingSyncAutoplayRef.current = false;
+    pendingSyncDurationMsRef.current = null;
+  }, [currentTrack.id, syncMode]);
 
   const renderContent = () => {
     switch (view) {
@@ -233,16 +482,18 @@ const App: React.FC = () => {
           <Player
             track={currentTrack}
             isPlaying={isPlaying}
-            onTogglePlay={togglePlay}
+            onTogglePlay={handleTogglePlay}
             onNext={handleNext}
             onPrev={handlePrev}
-            onSeek={seek}
+            onSeek={handleManualSeek}
             currentTime={currentTime}
             duration={duration}
             volume={volume}
             setVolume={setVolume}
             playbackRate={playbackRate}
             setPlaybackRate={setPlaybackRate}
+            syncMode={syncMode}
+            onToggleSyncMode={handleToggleSyncMode}
             isLargeText={isLargeText}
           />
         );
@@ -259,10 +510,10 @@ const App: React.FC = () => {
           <Settings
             currentTrack={currentTrack}
             isPlaying={isPlaying}
-            onTogglePlay={togglePlay}
+            onTogglePlay={handleTogglePlay}
             onNext={handleNext}
             onPrev={handlePrev}
-            onUpdateTarget={updateTaskTarget}
+            onUpdateTarget={handleUpdateTarget}
             onStopTask={stopTask}
             taskProgress={taskProgress}
             taskTarget={taskTarget}

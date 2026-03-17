@@ -16,13 +16,15 @@ interface PlayerProps {
   setVolume: (vol: number) => void;
   playbackRate: number;
   setPlaybackRate: (rate: number) => void;
+  syncMode: boolean;
+  onToggleSyncMode: () => void;
   isLargeText: boolean;
 }
 
 const Player: React.FC<PlayerProps> = ({ 
   track, isPlaying, onTogglePlay, onNext, onPrev, onSeek,
   currentTime, duration, volume, setVolume, 
-  playbackRate, setPlaybackRate, isLargeText
+  playbackRate, setPlaybackRate, syncMode, onToggleSyncMode, isLargeText
 }) => {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVinyl, setShowVinyl] = useState(() => {
@@ -65,6 +67,12 @@ const Player: React.FC<PlayerProps> = ({
       lastVolumeRef.current = volume;
     }
   }, [volume]);
+
+  useEffect(() => {
+    if (syncMode && showSpeedMenu) {
+      setShowSpeedMenu(false);
+    }
+  }, [syncMode, showSpeedMenu]);
 
   const handleMuteToggle = () => {
     if (volume > 0) {
@@ -234,7 +242,7 @@ const Player: React.FC<PlayerProps> = ({
 
       <div className="w-full max-w-[320px] mx-auto space-y-6 relative">
         {/* 倍速调节弹出菜单 */}
-        {showSpeedMenu && (
+        {showSpeedMenu && !syncMode && (
           <div className="absolute bottom-24 left-0 right-0 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 px-4">
             <div className="glass-panel rounded-2xl p-6 space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border-gold-main/10 max-w-[280px] mx-auto">
               <div className="flex justify-between items-center">
@@ -292,7 +300,7 @@ const Player: React.FC<PlayerProps> = ({
         )}
 
         <div className="space-y-4">
-          <div className="relative h-1.5 w-full bg-stone-900/80 rounded-full overflow-visible">
+          <div className={`relative h-1.5 w-full rounded-full overflow-visible transition-opacity ${syncMode ? 'bg-stone-800/60 opacity-70' : 'bg-stone-900/80'}`}>
             <input 
               type="range"
               min="0"
@@ -300,7 +308,8 @@ const Player: React.FC<PlayerProps> = ({
               step="0.1"
               value={currentTime}
               onChange={(e) => onSeek(parseFloat(e.target.value))}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+              disabled={syncMode}
+              className={`absolute inset-0 w-full h-full opacity-0 z-20 ${syncMode ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             />
             <div 
               className="absolute top-0 left-0 h-full bg-gold-metal shadow-[0_0_15px_rgba(212,175,55,0.7)] transition-all duration-300 rounded-full" 
@@ -315,6 +324,11 @@ const Player: React.FC<PlayerProps> = ({
             <span>{formatSeconds(currentTime)}</span>
             <span>{formatSeconds(duration)}</span>
           </div>
+          {syncMode && (
+            <p className="text-center text-[10px] text-gold-main/70 tracking-[0.25em] font-serif mt-1">
+              同步模式已锁定时间轴
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col items-center gap-6">
@@ -334,40 +348,66 @@ const Player: React.FC<PlayerProps> = ({
           </div>
 
           <div className="w-full space-y-2">
-            {/* 功能控制条 - 唱片切换 & 倍速调节 */}
-            <div className="flex justify-center gap-4 px-2">
-              <button 
+            {/* 功能控制条 - 唱片切换 / 同步模式 / 倍速调节 */}
+            <div className="flex justify-center gap-2 px-1 flex-nowrap w-full">
+              <button
                 onClick={() => setShowVinyl(!showVinyl)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border transition-all duration-300 backdrop-blur-xl active:scale-95 ${
-                  showVinyl 
-                    ? 'bg-gold-main/20 border-gold-main/30 text-gold-light shadow-[0_0_15px_rgba(212,175,55,0.2)]' 
+                className={`min-w-0 whitespace-nowrap flex items-center gap-2 px-3 py-2 rounded-2xl border transition-all duration-300 backdrop-blur-xl active:scale-95 ${
+                  showVinyl
+                    ? 'bg-gold-main/20 border-gold-main/30 text-gold-light shadow-[0_0_15px_rgba(212,175,55,0.2)]'
                     : 'bg-black/40 border-white/5 text-stone-400 hover:text-stone-200'
                 }`}
               >
-                <span className="material-symbols-outlined text-lg">
+                <span className="material-symbols-outlined text-base">
                   {showVinyl ? 'album' : 'image'}
                 </span>
-                <span className="text-xs font-bold tracking-widest font-serif">
+                <span className="text-[11px] font-bold tracking-[0.16em] font-serif">
                   {showVinyl ? '唱片' : '佛像'}
                 </span>
               </button>
 
-              <button 
-                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border transition-all duration-300 backdrop-blur-xl active:scale-95 ${
-                  showSpeedMenu 
-                    ? 'bg-gold-main/20 border-gold-main/30 text-gold-light shadow-[0_0_15px_rgba(212,175,55,0.2)]' 
+              <button
+                onClick={onToggleSyncMode}
+                className={`min-w-0 whitespace-nowrap flex items-center gap-2 px-3 py-2 rounded-2xl border transition-all duration-300 backdrop-blur-xl active:scale-95 ${
+                  syncMode
+                    ? 'bg-gold-main/20 border-gold-main/40 text-gold-light shadow-[0_0_15px_rgba(212,175,55,0.25)]'
                     : 'bg-black/40 border-white/5 text-stone-400 hover:text-stone-200'
                 }`}
+                title={syncMode ? '已开启同步播放模式' : '开启同步播放模式'}
               >
-                <span className="material-symbols-outlined text-lg">
+                <span className="material-symbols-outlined text-base">
+                  {syncMode ? 'sync_lock' : 'sync'}
+                </span>
+                <span className="text-[11px] font-bold tracking-[0.16em] font-serif">
+                  {syncMode ? '已同步' : '同步'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => !syncMode && setShowSpeedMenu(!showSpeedMenu)}
+                disabled={syncMode}
+                className={`min-w-0 whitespace-nowrap flex items-center gap-2 px-3 py-2 rounded-2xl border transition-all duration-300 backdrop-blur-xl ${
+                  syncMode
+                    ? 'bg-black/20 border-white/5 text-stone-600 cursor-not-allowed opacity-60'
+                    : showSpeedMenu
+                      ? 'bg-gold-main/20 border-gold-main/30 text-gold-light shadow-[0_0_15px_rgba(212,175,55,0.2)]'
+                      : 'bg-black/40 border-white/5 text-stone-400 hover:text-stone-200 active:scale-95'
+                }`}
+                title={syncMode ? '同步模式下倍速已锁定为1.0x' : '打开倍速调节'}
+              >
+                <span className="material-symbols-outlined text-base">
                   speed
                 </span>
-                <span className="text-xs font-bold tracking-widest font-serif">
+                <span className="text-[11px] font-bold tracking-[0.16em] font-serif">
                   {playbackRate.toFixed(1)}x
                 </span>
               </button>
             </div>
+            {syncMode && (
+              <p className="text-center text-[10px] text-gold-main/70 tracking-[0.25em] font-serif mt-1">
+                同步模式已开启，倍速锁定 1.0x
+              </p>
+            )}
 
             <div className="w-full flex items-center gap-4 px-5 py-4 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/5 shadow-inner group">
               <button 

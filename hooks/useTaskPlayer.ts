@@ -48,14 +48,24 @@ export const useTaskPlayer = (
 
   const isTaskActive = playbackMode === PlaybackMode.TASK && taskTarget > 0;
 
-  const updateTaskTarget = (target: number) => {
+  const updateTaskTarget = (
+    target: number,
+    startAtSec: number = 0,
+    initialProgress: number = 1,
+    autoplay: boolean = true
+  ) => {
     setTaskTarget(target);
-    setTaskProgress(1);
+    setTaskProgress(initialProgress);
     setPlaybackMode(PlaybackMode.TASK);
     const audio = getAudio();
     if (audio) {
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
+      audio.currentTime = Math.max(startAtSec, 0);
+      if (autoplay) {
+        audio.play().catch(() => {});
+      } else {
+        audio.pause();
+        setIsPlaying(false);
+      }
     }
   };
 
@@ -72,28 +82,18 @@ export const useTaskPlayer = (
   };
 
   const handleEnded = () => {
-    if (isTaskActive) {
-      if (taskProgress >= taskTarget) {
-        onRecordCompletion(currentTrack);
-        stopTask();
-        setIsPlaying(false);
-        setShowMerit(true);
-        return { taskCompleted: true };
-      } else {
-        setTaskProgress(prev => prev + 1);
-        onRecordCompletion(currentTrack);
-        const audio = getAudio();
-        if (audio) {
-          audio.currentTime = 0;
-          audio.play().catch(() => {});
-        }
-      }
-    } else if (playbackMode === PlaybackMode.SEQUENTIAL) {
+    // 任务模式与单曲循环模式采用“回绕检测”计次，这里避免重复计数
+    if (isTaskActive || playbackMode === PlaybackMode.SINGLE_LOOP) {
+      return { taskCompleted: false };
+    }
+
+    if (playbackMode === PlaybackMode.SEQUENTIAL) {
       onRecordCompletion(currentTrack);
       onNextTrack();
-    } else {
-      onRecordCompletion(currentTrack);
+      return { taskCompleted: false };
     }
+
+    onRecordCompletion(currentTrack);
     return { taskCompleted: false };
   };
 
