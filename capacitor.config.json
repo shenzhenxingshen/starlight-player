@@ -1,6 +1,6 @@
 {
   "appId": "com.shouyueliang.nianfoji",
-  "appName": "守月亮念佛机",
+  "appName": "星光播放器",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {

@@ -1,6 +1,6 @@
 {
-  "name": "守月亮念佛机-0313",
-  "description": "A Buddhist chanting application with a serene Zen aesthetic, featuring track management, loop settings, and meditation timers.",
+  "name": "星光播放器 V0.1",
+  "description": "一款支持多人共修同步的智能播放器，提供曲目管理、遍数任务与禅修计时功能。",
   "requestFramePermissions": [
     "microphone"
   ]
