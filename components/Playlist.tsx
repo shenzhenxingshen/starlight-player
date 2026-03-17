@@ -11,7 +11,6 @@ interface PlaylistProps {
 }
 
 const CUSTOM_TRACKS_KEY = 'zen_chant_custom_tracks';
-const AUDIO_CACHE_NAME = 'zen-chant-audio';
 
 const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLargeText }) => {
   const [activeTab, setActiveTab] = useState<'official' | 'custom'>('official');
@@ -22,10 +21,6 @@ const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLa
   const [newTrackFile, setNewTrackFile] = useState<File | null>(null);
   const [addMethod, setAddMethod] = useState<'url' | 'file'>('url');
   
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'completed' | 'partial'>('idle');
-  const [syncProgress, setSyncProgress] = useState(0);
-  const [cachedCount, setCachedCount] = useState(0);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,85 +53,9 @@ const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLa
     };
 
     loadTracks();
-    checkCacheStatus();
-
-    // 监听自动缓存成功的事件
-    const handleCacheUpdate = () => checkCacheStatus();
-    window.addEventListener('zen_cache_updated', handleCacheUpdate);
-    return () => window.removeEventListener('zen_cache_updated', handleCacheUpdate);
   }, []);
 
-  const checkCacheStatus = async () => {
-    try {
-      const cache = await caches.open(AUDIO_CACHE_NAME);
-      let validCount = 0;
-      const officialUrls = TRACKS.map(t => new URL(t.audioUrl, window.location.origin).href);
-      
-      for (const url of officialUrls) {
-        const response = await cache.match(url);
-        if (response && response.status === 200) {
-          validCount++;
-        }
-      }
-
-      setCachedCount(validCount);
-      const progress = Math.round((validCount / TRACKS.length) * 100);
-      setSyncProgress(progress);
-
-      if (validCount === TRACKS.length) {
-        setSyncStatus('completed');
-      } else if (validCount > 0) {
-        setSyncStatus('partial');
-      } else {
-        setSyncStatus('idle');
-      }
-    } catch (e) {
-      console.error("Cache check failed", e);
-    }
-  };
-
-  const handleManualSync = async () => {
-    if (syncStatus === 'syncing') return;
-    setSyncStatus('syncing');
-
-    try {
-      const cache = await caches.open(AUDIO_CACHE_NAME);
-      let currentHandled = 0;
-
-      for (const track of TRACKS) {
-        const normUrl = new URL(track.audioUrl, window.location.origin).href;
-        const existing = await cache.match(normUrl);
-        
-        if (existing && existing.status === 200) {
-          currentHandled++;
-          continue;
-        }
-
-        try {
-          const response = await fetch(track.audioUrl, {
-            mode: 'cors',
-            credentials: 'omit',
-            cache: 'reload' 
-          });
-          if (response.ok) {
-            await cache.put(normUrl, response);
-          }
-        } catch (err) {
-          console.error("Fetch failed for", track.title);
-        }
-        
-        currentHandled++;
-        // 实时更新进度
-        const p = Math.round((currentHandled / TRACKS.length) * 100);
-        setSyncProgress(p);
-      }
-      
-      await checkCacheStatus();
-    } catch (e) {
-      console.error("Sync crashed:", e);
-      setSyncStatus('partial');
-    }
-  };
+  
 
   const handleAddTrack = async () => {
     if (!newTrackTitle || !newTrackUrl) return;
@@ -234,45 +153,7 @@ const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLa
         </div>
       </div>
 
-      {activeTab === 'official' && (
-        <div className="px-6 py-3">
-          <div className="bg-black/60 border border-white/10 rounded-2xl p-4 flex items-center justify-between shadow-inner">
-            <div className="flex items-center gap-4">
-              <div className={`relative flex items-center justify-center w-10 h-10 rounded-full bg-black/40 border ${syncStatus === 'completed' ? 'border-green-500/50 text-green-400' : 'border-gold-main/30 text-gold-main'}`}>
-                {syncStatus === 'syncing' ? (
-                   <span className="material-symbols-outlined text-2xl animate-spin">sync</span>
-                ) : syncStatus === 'completed' ? (
-                   <span className="material-symbols-outlined text-2xl">verified_user</span>
-                ) : (
-                   <span className="material-symbols-outlined text-2xl">download_for_offline</span>
-                )}
-                {syncStatus === 'syncing' && (
-                  <svg className="absolute inset-0 w-full h-full -rotate-90">
-                    <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="113.1" strokeDashoffset={113.1 - (113.1 * syncProgress) / 100} className="opacity-40" />
-                  </svg>
-                )}
-              </div>
-              <div>
-                <p className={`font-bold font-serif transition-all ${isLargeText ? 'text-sm' : 'text-[12px]'} ${syncStatus === 'completed' ? 'text-green-400' : 'text-stone-200'}`}>
-                  {syncStatus === 'syncing' ? '正在离线所有曲目...' : `离线进度: ${cachedCount} / ${TRACKS.length}`}
-                </p>
-                <p className="text-stone-500 text-[10px] mt-0.5">
-                  {syncStatus === 'completed' ? '功德圆满，全曲目已支持离线播放' : '听完曲目将自动保存，也可手动同步'}
-                </p>
-              </div>
-            </div>
-            {syncStatus !== 'completed' && (
-              <button 
-                onClick={handleManualSync}
-                disabled={syncStatus === 'syncing'}
-                className={`px-3 py-2 bg-gold-main/10 border border-gold-main/30 rounded-xl text-gold-main font-bold tracking-widest uppercase hover:bg-gold-main/20 active:scale-95 disabled:opacity-30 transition-all ${isLargeText ? 'text-[10px]' : 'text-[9px]'}`}
-              >
-                {syncStatus === 'syncing' ? '进行中' : '手动同步'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      
 
       <div className="flex-1 overflow-y-auto pb-32 scroll-smooth">
         {activeTab === 'official' ? (

@@ -326,7 +326,7 @@ const Player: React.FC<PlayerProps> = ({
           </div>
           {syncMode && (
             <p className="text-center text-[10px] text-gold-main/70 tracking-[0.25em] font-serif mt-1">
-              同步模式已锁定时间轴
+              共修模式已锁定时间轴
             </p>
           )}
         </div>
@@ -373,13 +373,13 @@ const Player: React.FC<PlayerProps> = ({
                     ? 'bg-gold-main/20 border-gold-main/40 text-gold-light shadow-[0_0_15px_rgba(212,175,55,0.25)]'
                     : 'bg-black/40 border-white/5 text-stone-400 hover:text-stone-200'
                 }`}
-                title={syncMode ? '已开启同步播放模式' : '开启同步播放模式'}
+                title={syncMode ? '已开启共修模式' : '开启共修模式'}
               >
                 <span className="material-symbols-outlined text-base">
                   {syncMode ? 'sync_lock' : 'sync'}
                 </span>
                 <span className="text-[11px] font-bold tracking-[0.16em] font-serif">
-                  {syncMode ? '已同步' : '同步'}
+                  {syncMode ? '共修' : '自习'}
                 </span>
               </button>
 
@@ -393,7 +393,7 @@ const Player: React.FC<PlayerProps> = ({
                       ? 'bg-gold-main/20 border-gold-main/30 text-gold-light shadow-[0_0_15px_rgba(212,175,55,0.2)]'
                       : 'bg-black/40 border-white/5 text-stone-400 hover:text-stone-200 active:scale-95'
                 }`}
-                title={syncMode ? '同步模式下倍速已锁定为1.0x' : '打开倍速调节'}
+                title={syncMode ? '共修模式下倍速已锁定为1.0x' : '打开倍速调节'}
               >
                 <span className="material-symbols-outlined text-base">
                   speed
@@ -405,7 +405,7 @@ const Player: React.FC<PlayerProps> = ({
             </div>
             {syncMode && (
               <p className="text-center text-[10px] text-gold-main/70 tracking-[0.25em] font-serif mt-1">
-                同步模式已开启，倍速锁定 1.0x
+                共修模式已开启，倍速锁定 1.0x
               </p>
             )}
 
