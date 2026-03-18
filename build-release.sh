@@ -47,12 +47,12 @@ echo ""
 
 # 6. 上传到服务器
 echo "🚀 [6/6] 上传到服务器..."
-scp xingguang-v0.1.0.apk root@116.196.86.84:/var/www/app-download/test/
+scp xingguang-v0.1.0.apk root@116.196.86.84:/var/www/app-download/starlight/
 echo "✅ 上传完成"
 echo ""
 
 echo "=========================================="
 echo "✅ 构建流程全部完成！"
 echo "📦 APK: xingguang-v0.1.0.apk"
-echo "🌐 下载: http://116.196.86.84/test/"
+echo "🌐 下载: http://116.196.86.84/starlight/"
 echo "=========================================="

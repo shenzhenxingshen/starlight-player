@@ -14,12 +14,13 @@ interface SettingsProps {
   taskTarget: number;
   currentTime: number;
   duration: number;
+  syncMode?: boolean;
   isLargeText?: boolean;
 }
 
 const Settings: React.FC<SettingsProps> = ({ 
   currentTrack, isPlaying, onTogglePlay, onNext, onPrev, onUpdateTarget, onStopTask, 
-  taskProgress, taskTarget, currentTime, duration, isLargeText 
+  taskProgress, taskTarget, currentTime, duration, syncMode, isLargeText 
 }) => {
   const presets = [7, 21, 49, 108];
   const isTaskActive = taskTarget > 0;
@@ -129,6 +130,11 @@ const Settings: React.FC<SettingsProps> = ({
                    <p className={`font-bold text-gold-main/50 mt-1 uppercase tracking-[0.6em] font-serif transition-all ${isLargeText ? 'text-sm' : 'text-[10px]'}`}>
                      {isPlaying ? '正在播放' : '已暂停'}
                    </p>
+                   {syncMode && taskProgress === 0 && (
+                     <p className={`text-gold-main/60 mt-2 tracking-[0.2em] font-serif text-center transition-all ${isLargeText ? 'text-xs' : 'text-[9px]'}`}>
+                       首次完整回绕计为第1遍
+                     </p>
+                   )}
                 </div>
               ) : (
                 <p className={`font-bold text-gold-main/50 mt-4 uppercase tracking-[0.6em] font-serif transition-all ${isLargeText ? 'text-sm' : 'text-[10px]'}`}>请设定遍数</p>
