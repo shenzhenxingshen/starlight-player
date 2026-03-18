@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const [zenQuote, setZenQuote] = useState<ZenQuote>(getZenQuote());
   const [showMerit, setShowMerit] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   const [isLargeText, setIsLargeText] = useState(() => {
     try {
@@ -146,11 +147,21 @@ const App: React.FC = () => {
   }, [currentTrack, isPlaying]);
 
   const handleTrackSelect = (track: Track) => {
+    beginTrackSwitchGuard();
+    clearScheduledSyncTimers();
+
     const taskTargetSnapshot = isTaskActive ? taskTarget : 0;
+    const syncSupported = Boolean(track.durationMs && track.durationMs > 0);
+    const effectiveSyncMode = syncMode && syncSupported;
+
+    if (syncMode && !syncSupported) {
+      setSyncMode(false);
+      showSyncFallbackNotice('该曲目暂不支持共修同步，已切换为自习模式');
+    }
 
     if (taskTargetSnapshot > 0) {
-      pendingTaskCarryRef.current = { target: taskTargetSnapshot, sync: syncMode };
-    } else if (syncMode && isPlaying) {
+      pendingTaskCarryRef.current = { target: taskTargetSnapshot, sync: effectiveSyncMode };
+    } else if (effectiveSyncMode && isPlaying) {
       pendingSyncDurationMsRef.current = track.durationMs ?? null;
       pendingSyncAutoplayRef.current = true;
     }
@@ -170,6 +181,9 @@ const App: React.FC = () => {
   };
 
   const handlePrev = () => {
+    beginTrackSwitchGuard();
+    clearScheduledSyncTimers();
+
     const idx = TRACKS.findIndex(t => t.id === currentTrack.id);
     if (idx !== -1) {
       const nextTrack = TRACKS[(idx - 1 + TRACKS.length) % TRACKS.length];
@@ -223,6 +237,9 @@ const App: React.FC = () => {
   };
 
   const handleNext = () => {
+    beginTrackSwitchGuard();
+    clearScheduledSyncTimers();
+
     const idx = TRACKS.findIndex(t => t.id === currentTrack.id);
     if (idx !== -1) {
       const nextTrack = TRACKS[(idx + 1) % TRACKS.length];
@@ -280,8 +297,11 @@ const App: React.FC = () => {
   const syncDriftFirstCheckTimerRef = useRef<number | null>(null);
   const syncDriftIntervalRef = useRef<number | null>(null);
   const syncRateResetTimerRef = useRef<number | null>(null);
+  const syncNoticeTimerRef = useRef<number | null>(null);
+  const switchingTrackGuardTimerRef = useRef<number | null>(null);
   const playbackRateRef = useRef(playbackRate);
   const isPendingSyncedStartRef = useRef(false);
+  const isSwitchingTrackRef = useRef(false);
 
   const handleToggleSyncMode = () => {
     setSyncMode(prev => {
@@ -303,6 +323,41 @@ const App: React.FC = () => {
       window.clearTimeout(syncRateResetTimerRef.current);
       syncRateResetTimerRef.current = null;
     }
+  };
+
+  const clearSyncNoticeTimer = () => {
+    if (syncNoticeTimerRef.current !== null) {
+      window.clearTimeout(syncNoticeTimerRef.current);
+      syncNoticeTimerRef.current = null;
+    }
+  };
+
+  const showSyncFallbackNotice = (message: string) => {
+    clearSyncNoticeTimer();
+    setSyncNotice(message);
+    syncNoticeTimerRef.current = window.setTimeout(() => {
+      setSyncNotice(null);
+      syncNoticeTimerRef.current = null;
+    }, 2200);
+  };
+
+  const clearSwitchingTrackGuard = () => {
+    if (switchingTrackGuardTimerRef.current !== null) {
+      window.clearTimeout(switchingTrackGuardTimerRef.current);
+      switchingTrackGuardTimerRef.current = null;
+    }
+    isSwitchingTrackRef.current = false;
+  };
+
+  const beginTrackSwitchGuard = () => {
+    isSwitchingTrackRef.current = true;
+    if (switchingTrackGuardTimerRef.current !== null) {
+      window.clearTimeout(switchingTrackGuardTimerRef.current);
+    }
+    switchingTrackGuardTimerRef.current = window.setTimeout(() => {
+      isSwitchingTrackRef.current = false;
+      switchingTrackGuardTimerRef.current = null;
+    }, 900);
   };
 
   const restorePlaybackRateByMode = () => {
@@ -460,6 +515,8 @@ const App: React.FC = () => {
   useEffect(() => {
     return () => {
       clearScheduledSyncTimers();
+      clearSyncNoticeTimer();
+      clearSwitchingTrackGuard();
     };
   }, []);
 
@@ -673,8 +730,14 @@ const App: React.FC = () => {
         src={currentTrack.audioUrl}
         onTimeUpdate={handleTaskTimeUpdate}
         onEnded={handleEnded}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPlay={() => {
+          clearSwitchingTrackGuard();
+          setIsPlaying(true);
+        }}
+        onPause={() => {
+          if (isSwitchingTrackRef.current) return;
+          setIsPlaying(false);
+        }}
         onError={(e) => console.error("Audio error:", e)}
         crossOrigin="anonymous"
         loop={playbackMode === PlaybackMode.SINGLE_LOOP || isTaskActive}
@@ -683,6 +746,12 @@ const App: React.FC = () => {
       {renderContent()}
 
       <BottomNav activeView={view} onViewChange={setView} />
+
+      {syncNotice && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-black/75 border border-gold-main/30 text-gold-light text-xs tracking-[0.12em] font-serif shadow-xl backdrop-blur pointer-events-none">
+          {syncNotice}
+        </div>
+      )}
 
       {showMerit && <MeritAnimation onComplete={() => setShowMerit(false)} />}
       {showShare && <ShareCard quote={zenQuote} onClose={() => setShowShare(false)} />}
