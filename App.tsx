@@ -17,7 +17,7 @@ import { FEATURE_FLAGS } from './constants/featureFlags';
 const STATS_KEY = 'zen_chant_user_stats';
 const CONFIG_KEY = 'zen_chant_config';
 const SYNC_MODE_KEY = 'zen_chant_sync_mode';
-const AUDIO_CACHE_NAME = 'zen-chant-audio';
+
 
 const getLocalDateKey = () => {
   const now = new Date();
@@ -77,7 +77,6 @@ const App: React.FC = () => {
     setVolume,
     playbackRate,
     setPlaybackRate,
-    togglePlay,
     seek,
     handleTimeUpdate
   } = useAudioPlayer(currentTrack);
@@ -289,12 +288,9 @@ const App: React.FC = () => {
     isTaskActive,
     taskProgress,
     taskTarget,
-    setTaskTarget,
     setTaskProgress,
     stopTask,
     updateTaskTarget,
-    recordCompletion: taskRecordCompletion,
-    isSingleLoop,
     handleEnded
   } = useTaskPlayer(
     currentTrack,
