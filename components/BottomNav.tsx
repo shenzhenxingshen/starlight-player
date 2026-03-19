@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { View } from '../types';
+import { FEATURE_FLAGS } from '../constants/featureFlags';
 
 interface BottomNavProps {
   activeView: View;
@@ -11,7 +12,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeView, onViewChange }) => {
   const items = [
     { id: View.PLAYER, label: '播放', icon: 'play_circle' },
     { id: View.PLAYLIST, label: '曲目', icon: 'library_music' },
-    { id: View.TIMER, label: '定时', icon: 'timer' },
+    ...(!FEATURE_FLAGS.HIDE_TIMER_NAV ? [{ id: View.TIMER, label: '定时', icon: 'timer' }] : []),
     { id: View.PROFILE, label: '我的', icon: 'person' },
   ];
 

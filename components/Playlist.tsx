@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Track } from '../types';
 import { TRACKS, SECTIONS } from '../constants';
 import { saveAudioBlob, getAudioBlob, deleteAudioBlob } from '../services/dbService';
+import { FEATURE_FLAGS } from '../constants/featureFlags';
 
 interface PlaylistProps {
   onTrackSelect: (track: Track) => void;
@@ -13,6 +14,8 @@ interface PlaylistProps {
 const CUSTOM_TRACKS_KEY = 'zen_chant_custom_tracks';
 
 const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLargeText }) => {
+  const showPlaylistTopHeader = !FEATURE_FLAGS.HIDE_PLAYLIST_TOP_HEADER;
+  const showCustomTracks = !FEATURE_FLAGS.HIDE_CUSTOM_TRACKS;
   const [activeTab, setActiveTab] = useState<'official' | 'custom'>('official');
   const [customTracks, setCustomTracks] = useState<Track[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -136,27 +139,31 @@ const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLa
 
   return (
     <div className="flex flex-col h-full bg-dark-gradient overflow-hidden pt-10">
-      <div className="flex-none bg-transparent px-6 mb-2">
-        <div className="flex gap-4">
-          <button 
-            onClick={() => setActiveTab('official')}
-            className={`flex-1 flex flex-col items-center border-b-2 pb-3 transition-all ${activeTab === 'official' ? 'border-gold-main text-gold-main' : 'border-transparent text-stone-500 hover:text-stone-300'}`}
-          >
-            <p className={`font-bold tracking-[0.1em] font-serif transition-all ${isLargeText ? 'text-xl' : 'text-[16px]'}`}>官方曲目</p>
-          </button>
-          <button 
-            onClick={() => setActiveTab('custom')}
-            className={`flex-1 flex flex-col items-center border-b-2 pb-3 transition-all ${activeTab === 'custom' ? 'border-gold-main text-gold-main' : 'border-transparent text-stone-500 hover:text-stone-300'}`}
-          >
-            <p className={`font-bold tracking-[0.1em] font-serif transition-all ${isLargeText ? 'text-xl' : 'text-[16px]'}`}>自定义</p>
-          </button>
+      {showPlaylistTopHeader && (
+        <div className="flex-none bg-transparent px-6 mb-2">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('official')}
+              className={`flex-1 flex flex-col items-center border-b-2 pb-3 transition-all ${activeTab === 'official' ? 'border-gold-main text-gold-main' : 'border-transparent text-stone-500 hover:text-stone-300'}`}
+            >
+              <p className={`font-bold tracking-[0.1em] font-serif transition-all ${isLargeText ? 'text-xl' : 'text-[16px]'}`}>官方曲目</p>
+            </button>
+            {showCustomTracks && (
+              <button
+                onClick={() => setActiveTab('custom')}
+                className={`flex-1 flex flex-col items-center border-b-2 pb-3 transition-all ${activeTab === 'custom' ? 'border-gold-main text-gold-main' : 'border-transparent text-stone-500 hover:text-stone-300'}`}
+              >
+                <p className={`font-bold tracking-[0.1em] font-serif transition-all ${isLargeText ? 'text-xl' : 'text-[16px]'}`}>自定义</p>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       
 
       <div className="flex-1 overflow-y-auto pb-32 scroll-smooth">
-        {activeTab === 'official' ? (
+        {!showCustomTracks || activeTab === 'official' ? (
           SECTIONS.map((section) => (
             <div key={section.id} className="mb-2">
               <div className="sticky top-0 z-30 bg-[#0d0805]/98 backdrop-blur-xl px-5 py-3 border-b border-gold-main/10 shadow-lg">
@@ -247,7 +254,7 @@ const Playlist: React.FC<PlaylistProps> = ({ onTrackSelect, currentTrackId, isLa
         )}
       </div>
 
-      {showAddModal && (
+      {showCustomTracks && showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl bg-black/70">
           <div className="w-full max-w-sm bg-surface-dark border border-gold-main/30 rounded-[2.5rem] p-8 shadow-2xl">
             <h3 className={`text-gold-light font-bold font-serif mb-6 text-center tracking-widest transition-all ${isLargeText ? 'text-2xl' : 'text-xl'}`}>添加修行曲目</h3>
