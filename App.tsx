@@ -12,11 +12,20 @@ import ShareCard from './components/ShareCard';
 import { getZenQuote, ZenQuote } from './services/zenQuoteService';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useTaskPlayer } from './hooks/useTaskPlayer';
+import { FEATURE_FLAGS } from './constants/featureFlags';
 
 const STATS_KEY = 'zen_chant_user_stats';
 const CONFIG_KEY = 'zen_chant_config';
 const SYNC_MODE_KEY = 'zen_chant_sync_mode';
 const AUDIO_CACHE_NAME = 'zen-chant-audio';
+
+const getLocalDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>(View.PLAYER);
@@ -46,6 +55,9 @@ const App: React.FC = () => {
     }
   });
   const [syncMode, setSyncMode] = useState(() => {
+    if (FEATURE_FLAGS.FORCE_SYNC_MODE) {
+      return true;
+    }
     try {
       const saved = localStorage.getItem(SYNC_MODE_KEY);
       return saved ? JSON.parse(saved) : false;
@@ -93,6 +105,12 @@ const App: React.FC = () => {
   useEffect(() => {
     syncModeRef.current = syncMode;
   }, [syncMode]);
+
+  useEffect(() => {
+    if (FEATURE_FLAGS.FORCE_SYNC_MODE && !syncModeRef.current) {
+      setSyncMode(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (syncMode && playbackRate !== 1.0) {
@@ -216,7 +234,7 @@ const App: React.FC = () => {
 
   const recordCompletion = (track: Track) => {
     setStats(prev => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateKey();
       // 兼容旧数据格式：如果以前存的是数字，重置为对象
       const currentDayLog = (typeof prev.dailyLogs[today] === 'object' && prev.dailyLogs[today] !== null)
         ? prev.dailyLogs[today]
@@ -299,11 +317,19 @@ const App: React.FC = () => {
   const syncRateResetTimerRef = useRef<number | null>(null);
   const syncNoticeTimerRef = useRef<number | null>(null);
   const switchingTrackGuardTimerRef = useRef<number | null>(null);
+  const resumeSyncAlignTimerRef = useRef<number | null>(null);
   const playbackRateRef = useRef(playbackRate);
   const isPendingSyncedStartRef = useRef(false);
   const isSwitchingTrackRef = useRef(false);
+  const manualPauseIntentRef = useRef(false);
+  const resumeAfterInterruptRef = useRef(false);
 
   const handleToggleSyncMode = () => {
+    if (FEATURE_FLAGS.FORCE_SYNC_MODE) {
+      setSyncMode(true);
+      return;
+    }
+
     setSyncMode(prev => {
       const next = !prev;
       if (next) {
@@ -322,6 +348,13 @@ const App: React.FC = () => {
     if (syncRateResetTimerRef.current !== null) {
       window.clearTimeout(syncRateResetTimerRef.current);
       syncRateResetTimerRef.current = null;
+    }
+  };
+
+  const clearResumeSyncAlignTimer = () => {
+    if (resumeSyncAlignTimerRef.current !== null) {
+      window.clearTimeout(resumeSyncAlignTimerRef.current);
+      resumeSyncAlignTimerRef.current = null;
     }
   };
 
@@ -380,6 +413,7 @@ const App: React.FC = () => {
       syncDriftIntervalRef.current = null;
     }
     clearSyncRateResetTimer();
+    clearResumeSyncAlignTimer();
     restorePlaybackRateByMode();
     isPendingSyncedStartRef.current = false;
   };
@@ -471,33 +505,20 @@ const App: React.FC = () => {
     isPendingSyncedStartRef.current = false;
     afterStart?.();
 
-    // 快速收敛：200ms、1s、3s、7s 各纠偏一次
-    const correctionIntervals = [200, 1000, 3000, 7000];
-    let currentIntervalIndex = 0;
+    const correctionIntervals = [220, 1200, 3200];
 
-    const rapidCorrection = () => {
-      if (currentIntervalIndex < correctionIntervals.length) {
-        const nextInterval = correctionIntervals[currentIntervalIndex];
-        currentIntervalIndex++;
-        
-        syncDriftFirstCheckTimerRef.current = window.setTimeout(() => {
-          runSyncDriftCorrection(durationMs);
-          
-          // 继续下一个快速纠偏
-          if (currentIntervalIndex < correctionIntervals.length) {
-            rapidCorrection();
-          } else {
-            // 快速收敛完成，进入稳定期：每3秒纠偏一次
-            syncDriftIntervalRef.current = window.setInterval(() => {
-              runSyncDriftCorrection(durationMs);
-            }, 3000);
-          }
-        }, nextInterval);
-      }
+    const triggerRapidCorrection = (index: number) => {
+      if (index >= correctionIntervals.length) return;
+      const delay = correctionIntervals[index];
+
+      syncDriftFirstCheckTimerRef.current = window.setTimeout(() => {
+        syncDriftFirstCheckTimerRef.current = null;
+        runSyncDriftCorrection(durationMs);
+        triggerRapidCorrection(index + 1);
+      }, delay);
     };
 
-    // 开始快速收敛序列
-    rapidCorrection();
+    triggerRapidCorrection(0);
   };
 
   useEffect(() => {
@@ -520,18 +541,47 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const tryResumeAfterInterrupt = () => {
+    if (!resumeAfterInterruptRef.current) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    const audio = audioRef.current;
+    if (!audio || !audio.paused) {
+      resumeAfterInterruptRef.current = false;
+      return;
+    }
+
+    setIsPlaying(true);
+  };
+
   const handleTogglePlay = () => {
     if (isPlaying) {
+      manualPauseIntentRef.current = true;
+      resumeAfterInterruptRef.current = false;
       setIsPlaying(false);
       clearScheduledSyncTimers();
       return;
     }
+    manualPauseIntentRef.current = false;
     if (syncMode) {
       scheduleSyncedStart(currentTrack.durationMs);
       return;
     }
     setIsPlaying(true);
   };
+
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      tryResumeAfterInterrupt();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, []);
 
   const handleUpdateTarget = (target: number) => {
     if (syncMode) {
@@ -546,7 +596,7 @@ const App: React.FC = () => {
   };
 
   const handleManualSeek = (time: number) => {
-    if (syncMode) return;
+    if (FEATURE_FLAGS.LOCK_TIMELINE || syncMode) return;
     lastManualSeekAtRef.current = Date.now();
     seek(time);
   };
@@ -732,10 +782,31 @@ const App: React.FC = () => {
         onEnded={handleEnded}
         onPlay={() => {
           clearSwitchingTrackGuard();
+          resumeAfterInterruptRef.current = false;
+          manualPauseIntentRef.current = false;
           setIsPlaying(true);
+
+          if (syncModeRef.current) {
+            clearResumeSyncAlignTimer();
+            resumeSyncAlignTimerRef.current = window.setTimeout(() => {
+              resumeSyncAlignTimerRef.current = null;
+              runSyncDriftCorrection(currentTrack.durationMs);
+            }, 180);
+          }
         }}
         onPause={() => {
           if (isSwitchingTrackRef.current) return;
+          clearResumeSyncAlignTimer();
+
+          const shouldAutoResume =
+            !manualPauseIntentRef.current &&
+            syncModeRef.current &&
+            (document.visibilityState === 'hidden' || !document.hasFocus());
+
+          if (shouldAutoResume) {
+            resumeAfterInterruptRef.current = true;
+          }
+
           setIsPlaying(false);
         }}
         onError={(e) => console.error("Audio error:", e)}
