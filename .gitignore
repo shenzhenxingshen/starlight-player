@@ -35,3 +35,16 @@ android/app/release
 # Keystore (安全起见)
 *.jks
 *.keystore
+
+# --- publish hygiene ---
+.env
+.env.*
+!.env.example
+android/local.properties
+build.log
+*.idsig
+*.backup
+*.bak
+.joycode/
+migrated_prompt_history/
+temp_icon/
