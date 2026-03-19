@@ -48,3 +48,16 @@ build.log
 .joycode/
 migrated_prompt_history/
 temp_icon/
+
+# --- publish hygiene ---
+.env
+.env.*
+!.env.example
+android/local.properties
+build.log
+*.idsig
+*.backup
+*.bak
+.joycode/
+migrated_prompt_history/
+temp_icon/
