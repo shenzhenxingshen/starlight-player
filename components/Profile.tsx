@@ -2,6 +2,7 @@
 import React from 'react';
 import { TRACKS } from '../constants';
 import { ZenQuote } from '../services/zenQuoteService';
+import { FEATURE_FLAGS } from '../constants/featureFlags';
 
 interface ProfileProps {
   stats: {
@@ -24,8 +25,11 @@ const Profile: React.FC<ProfileProps> = ({
   onToggleLargeText, 
   onOpenShare 
 }) => {
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const todayStats: Record<string, number> = stats.dailyLogs[today] || {};
+  const showProfileHeader = !FEATURE_FLAGS.HIDE_PROFILE_HEADER;
+  const showProfileQuote = !FEATURE_FLAGS.HIDE_PROFILE_QUOTE;
   
   const calculateDays = () => {
     const start = new Date(stats.installDate).getTime();
@@ -47,57 +51,59 @@ const Profile: React.FC<ProfileProps> = ({
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto pb-32 pt-20">
-      {/* 头部：修行者信息与极简结缘天数 */}
-      <div className="px-8 pb-12 flex flex-col items-center text-center">
-        <div className="relative mb-8">
-          <div className="absolute inset-[-12px] bg-gold-main/5 blur-3xl rounded-full"></div>
-          <div className="w-20 h-20 rounded-full badge-texture flex items-center justify-center text-[#4a3b18] border border-gold-dark/20 shadow-xl relative z-10">
-             <span className="material-symbols-outlined text-4xl font-light">person</span>
+      {showProfileHeader && (
+        <div className="px-8 pb-12 flex flex-col items-center text-center">
+          <div className="relative mb-8">
+            <div className="absolute inset-[-12px] bg-gold-main/5 blur-3xl rounded-full"></div>
+            <div className="w-20 h-20 rounded-full badge-texture flex items-center justify-center text-[#4a3b18] border border-gold-dark/20 shadow-xl relative z-10">
+              <span className="material-symbols-outlined text-4xl font-light">person</span>
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <h3 className={`font-bold text-gold-light tracking-[0.4em] font-serif uppercase transition-all ${isLargeText ? 'text-3xl' : 'text-xl'}`}>
-            净土行人
-          </h3>
-          <p className={`text-stone-600 tracking-[0.2em] font-serif opacity-60 transition-all ${isLargeText ? 'text-sm' : 'text-[10px]'}`}>
-            已使用此APP {calculateDays()} 日
-          </p>
-        </div>
-      </div>
-
-      {/* 核心：智慧语录（作为界面视觉中心） */}
-      <div className="px-10 mb-16">
-        <div className="relative px-4 py-8 flex flex-col items-center">
-          <span className="absolute top-0 left-0 text-gold-main/20 text-5xl font-serif">“</span>
-          <div className="px-4">
-            <p className={`text-stone-300 tracking-widest leading-[2] font-serif text-center transition-all ${isLargeText ? 'text-2xl' : 'text-[17px]'}`}>
-              {zenQuote.text}
-            </p>
-            <p className={`text-gold-main/60 tracking-[0.2em] font-serif mt-6 text-right transition-all ${isLargeText ? 'text-lg' : 'text-[12px]'}`}>
-              —— {zenQuote.source}
+          <div className="space-y-2">
+            <h3 className={`font-bold text-gold-light tracking-[0.4em] font-serif uppercase transition-all ${isLargeText ? 'text-3xl' : 'text-xl'}`}>
+              净土行人
+            </h3>
+            <p className={`text-stone-600 tracking-[0.2em] font-serif opacity-60 transition-all ${isLargeText ? 'text-sm' : 'text-[10px]'}`}>
+              已使用此APP {calculateDays()} 日
             </p>
           </div>
-          <span className="absolute bottom-0 right-0 text-gold-main/20 text-5xl font-serif rotate-180">“</span>
-          
-          <div className="flex items-center justify-center gap-8 mt-10">
-            <button 
-              onClick={onRefreshQuote} 
-              className={`text-stone-600 uppercase tracking-[0.4em] hover:text-gold-main transition-all flex items-center gap-1.5 ${isLargeText ? 'text-sm' : 'text-[10px]'}`}
-            >
-              <span className="material-symbols-outlined text-sm">refresh</span>
-              刷新
-            </button>
-            <button 
-              onClick={onOpenShare} 
-              className={`text-stone-600 uppercase tracking-[0.4em] hover:text-gold-main transition-all flex items-center gap-1.5 ${isLargeText ? 'text-sm' : 'text-[10px]'}`}
-            >
-              <span className="material-symbols-outlined text-sm">share</span>
-              分享
-            </button>
+        </div>
+      )}
+
+      {showProfileQuote && (
+        <div className="px-10 mb-16">
+          <div className="relative px-4 py-8 flex flex-col items-center">
+            <span className="absolute top-0 left-0 text-gold-main/20 text-5xl font-serif">“</span>
+            <div className="px-4">
+              <p className={`text-stone-300 tracking-widest leading-[2] font-serif text-center transition-all ${isLargeText ? 'text-2xl' : 'text-[17px]'}`}>
+                {zenQuote.text}
+              </p>
+              <p className={`text-gold-main/60 tracking-[0.2em] font-serif mt-6 text-right transition-all ${isLargeText ? 'text-lg' : 'text-[12px]'}`}>
+                —— {zenQuote.source}
+              </p>
+            </div>
+            <span className="absolute bottom-0 right-0 text-gold-main/20 text-5xl font-serif rotate-180">“</span>
+
+            <div className="flex items-center justify-center gap-8 mt-10">
+              <button
+                onClick={onRefreshQuote}
+                className={`text-stone-600 uppercase tracking-[0.4em] hover:text-gold-main transition-all flex items-center gap-1.5 ${isLargeText ? 'text-sm' : 'text-[10px]'}`}
+              >
+                <span className="material-symbols-outlined text-sm">refresh</span>
+                刷新
+              </button>
+              <button
+                onClick={onOpenShare}
+                className={`text-stone-600 uppercase tracking-[0.4em] hover:text-gold-main transition-all flex items-center gap-1.5 ${isLargeText ? 'text-sm' : 'text-[10px]'}`}
+              >
+                <span className="material-symbols-outlined text-sm">share</span>
+                分享
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 功课列表：只保留今日每项曲目的记录 */}
       <div className="px-8 space-y-6">
