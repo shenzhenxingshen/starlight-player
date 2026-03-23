@@ -149,9 +149,12 @@ const App: React.FC = () => {
       navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
 
       navigator.mediaSession.setActionHandler('play', () => {
+        manualPauseIntentRef.current = false;
         setIsPlaying(true);
       });
       navigator.mediaSession.setActionHandler('pause', () => {
+        manualPauseIntentRef.current = true;
+        resumeAfterInterruptRef.current = false;
         setIsPlaying(false);
       });
       navigator.mediaSession.setActionHandler('previoustrack', () => {
@@ -253,7 +256,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = (forcePlay: boolean = false) => {
     beginTrackSwitchGuard();
     clearScheduledSyncTimers();
 
@@ -277,7 +280,7 @@ const App: React.FC = () => {
 
       if (taskTargetSnapshot > 0) {
         setIsPlaying(false);
-      } else if (isPlaying) {
+      } else if (isPlaying || forcePlay) {
         setIsPlaying(true);
       }
     }
@@ -298,7 +301,7 @@ const App: React.FC = () => {
     setIsPlaying,
     setShowMerit,
     recordCompletion,
-    handleNext
+    () => handleNext(true)
   );
 
   // 使用 audio.loop + 时间回绕检测计次
@@ -319,6 +322,7 @@ const App: React.FC = () => {
   const isSwitchingTrackRef = useRef(false);
   const manualPauseIntentRef = useRef(false);
   const resumeAfterInterruptRef = useRef(false);
+  const playbackKeepAliveTimerRef = useRef<number | null>(null);
 
   const handleToggleSyncMode = () => {
     if (FEATURE_FLAGS.FORCE_SYNC_MODE) {
@@ -534,6 +538,10 @@ const App: React.FC = () => {
       clearScheduledSyncTimers();
       clearSyncNoticeTimer();
       clearSwitchingTrackGuard();
+      if (playbackKeepAliveTimerRef.current !== null) {
+        window.clearInterval(playbackKeepAliveTimerRef.current);
+        playbackKeepAliveTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -578,6 +586,33 @@ const App: React.FC = () => {
       window.removeEventListener('focus', handleVisibilityOrFocus);
     };
   }, []);
+
+  useEffect(() => {
+    if (playbackKeepAliveTimerRef.current !== null) {
+      window.clearInterval(playbackKeepAliveTimerRef.current);
+      playbackKeepAliveTimerRef.current = null;
+    }
+
+    if (!isPlaying) return;
+
+    playbackKeepAliveTimerRef.current = window.setInterval(() => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (!isPlaying) return;
+      if (!audio.paused) return;
+      if (manualPauseIntentRef.current) return;
+      if (isSwitchingTrackRef.current) return;
+
+      setIsPlaying(true);
+    }, 5000);
+
+    return () => {
+      if (playbackKeepAliveTimerRef.current !== null) {
+        window.clearInterval(playbackKeepAliveTimerRef.current);
+        playbackKeepAliveTimerRef.current = null;
+      }
+    };
+  }, [isPlaying]);
 
   const handleUpdateTarget = (target: number) => {
     if (syncMode) {

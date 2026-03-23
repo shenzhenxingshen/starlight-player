@@ -111,7 +111,6 @@ const Player: React.FC<PlayerProps> = ({
   };
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const sideButtonSizeClass = isMinimalUi ? 'w-16 h-16' : 'w-14 h-14';
 
   return (
     <main className="flex-1 flex flex-col justify-between px-6 pt-12 pb-28 relative z-10">
@@ -168,6 +167,23 @@ const Player: React.FC<PlayerProps> = ({
           </div>
         )}
 
+        <div className="w-full max-w-[340px] flex items-center justify-between px-2">
+          <button
+            onClick={onPrev}
+            className="w-12 h-12 rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10"
+            aria-label="上一曲"
+          >
+            <span className="material-symbols-outlined text-[38px]">chevron_left</span>
+          </button>
+          <button
+            onClick={onNext}
+            className="w-12 h-12 rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10"
+            aria-label="下一曲"
+          >
+            <span className="material-symbols-outlined text-[38px]">chevron_right</span>
+          </button>
+        </div>
+
         <div className="text-center space-y-3">
           <h2 className={`text-gold-glow font-bold tracking-[0.22em] font-serif transition-all ${isLargeText ? 'text-5xl' : 'text-3xl'}`}>
             {track.title}
@@ -213,15 +229,7 @@ const Player: React.FC<PlayerProps> = ({
       </div>
 
       <div className="w-full max-w-[360px] mx-auto">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onPrev}
-            className={`${sideButtonSizeClass} rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10`}
-            aria-label="上一曲"
-          >
-            <span className="material-symbols-outlined text-[44px]">chevron_left</span>
-          </button>
-
+        <div className="flex items-center justify-center">
           <button
             onClick={onTogglePlay}
             className="relative rounded-full bg-gold-metal flex items-center justify-center shadow-[0_15px_45px_rgba(0,0,0,0.7),inset_0_-4px_8px_rgba(0,0,0,0.4)] active:scale-95 transition-all border-4 border-[#2C1E12] overflow-hidden"
@@ -232,14 +240,6 @@ const Player: React.FC<PlayerProps> = ({
             <span className="material-symbols-outlined text-[#3d2b1f] select-none" style={{ fontSize: `${mainIconSize}px` }}>
               {isPlaying ? 'pause' : 'play_arrow'}
             </span>
-          </button>
-
-          <button
-            onClick={onNext}
-            className={`${sideButtonSizeClass} rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10`}
-            aria-label="下一曲"
-          >
-            <span className="material-symbols-outlined text-[44px]">chevron_right</span>
           </button>
         </div>
 
