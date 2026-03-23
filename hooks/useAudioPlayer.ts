@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Track } from '../types';
 
+const PLAY_RETRY_MAX_ATTEMPTS = 3;
+const PLAY_RETRY_DELAY_MS = 800;
+
 export const useAudioPlayer = (currentTrack: Track) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playRetryTimerRef = useRef<number | null>(null);
+  const playRetryCountRef = useRef(0);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -23,6 +29,45 @@ export const useAudioPlayer = (currentTrack: Track) => {
     }
   });
 
+  const clearPlayRetryTimer = () => {
+    if (playRetryTimerRef.current !== null) {
+      window.clearTimeout(playRetryTimerRef.current);
+      playRetryTimerRef.current = null;
+    }
+  };
+
+  const resetPlayRetryState = () => {
+    clearPlayRetryTimer();
+    playRetryCountRef.current = 0;
+  };
+
+  const attemptPlayWithRetry = (attempt: number = 0) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused === false) {
+      resetPlayRetryState();
+      return;
+    }
+
+    audio.play().then(() => {
+      resetPlayRetryState();
+    }).catch(() => {
+      if (attempt >= PLAY_RETRY_MAX_ATTEMPTS) {
+        resetPlayRetryState();
+        setIsPlaying(false);
+        return;
+      }
+
+      playRetryCountRef.current = attempt + 1;
+      clearPlayRetryTimer();
+      playRetryTimerRef.current = window.setTimeout(() => {
+        playRetryTimerRef.current = null;
+        if (!audioRef.current || !isPlaying) return;
+        attemptPlayWithRetry(attempt + 1);
+      }, PLAY_RETRY_DELAY_MS);
+    });
+  };
+
   useEffect(() => {
     localStorage.setItem('zen_chant_volume', JSON.stringify(volume));
   }, [volume]);
@@ -34,8 +79,9 @@ export const useAudioPlayer = (currentTrack: Track) => {
   useEffect(() => {
     if (!audioRef.current) return;
     if (isPlaying) {
-      audioRef.current.play().catch(() => setIsPlaying(false));
+      attemptPlayWithRetry(0);
     } else {
+      resetPlayRetryState();
       audioRef.current.pause();
     }
   }, [isPlaying]);
@@ -56,11 +102,18 @@ export const useAudioPlayer = (currentTrack: Track) => {
     if (audioRef.current) {
       audioRef.current.load();
       if (isPlaying) {
-        audioRef.current.play().catch(() => {});
+        resetPlayRetryState();
+        attemptPlayWithRetry(0);
       }
       audioRef.current.playbackRate = playbackRate;
     }
   }, [currentTrack.id]);
+
+  useEffect(() => {
+    return () => {
+      resetPlayRetryState();
+    };
+  }, []);
 
   const togglePlay = () => setIsPlaying(prev => !prev);
 

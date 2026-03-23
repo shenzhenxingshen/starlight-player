@@ -13,10 +13,13 @@ import { getZenQuote, ZenQuote } from './services/zenQuoteService';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useTaskPlayer } from './hooks/useTaskPlayer';
 import { FEATURE_FLAGS } from './constants/featureFlags';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 const STATS_KEY = 'zen_chant_user_stats';
 const CONFIG_KEY = 'zen_chant_config';
 const SYNC_MODE_KEY = 'zen_chant_sync_mode';
+const LAST_RECOVERY_REASON_KEY = 'zen_chant_last_recovery_reason';
 
 
 const getLocalDateKey = () => {
@@ -45,6 +48,13 @@ const App: React.FC = () => {
   const [showMerit, setShowMerit] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [lastRecoveryReason, setLastRecoveryReason] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(LAST_RECOVERY_REASON_KEY);
+    } catch {
+      return null;
+    }
+  });
 
   const [isLargeText, setIsLargeText] = useState(() => {
     try {
@@ -66,6 +76,7 @@ const App: React.FC = () => {
     }
   });
   const syncModeRef = useRef(syncMode);
+  const isPlayingRef = useRef(false);
 
   const {
     audioRef,
@@ -104,6 +115,10 @@ const App: React.FC = () => {
   useEffect(() => {
     syncModeRef.current = syncMode;
   }, [syncMode]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   useEffect(() => {
     if (FEATURE_FLAGS.FORCE_SYNC_MODE && !syncModeRef.current) {
@@ -323,6 +338,7 @@ const App: React.FC = () => {
   const manualPauseIntentRef = useRef(false);
   const resumeAfterInterruptRef = useRef(false);
   const playbackKeepAliveTimerRef = useRef<number | null>(null);
+  const playbackRecoveryTimerRef = useRef<number | null>(null);
 
   const handleToggleSyncMode = () => {
     if (FEATURE_FLAGS.FORCE_SYNC_MODE) {
@@ -372,6 +388,42 @@ const App: React.FC = () => {
       setSyncNotice(null);
       syncNoticeTimerRef.current = null;
     }, 2200);
+  };
+
+  const clearPlaybackRecoveryTimer = () => {
+    if (playbackRecoveryTimerRef.current !== null) {
+      window.clearTimeout(playbackRecoveryTimerRef.current);
+      playbackRecoveryTimerRef.current = null;
+    }
+  };
+
+  const logRecoveryReason = (reason: string) => {
+    const payload = `${new Date().toISOString()} | ${reason}`;
+    setLastRecoveryReason(payload);
+    try {
+      localStorage.setItem(LAST_RECOVERY_REASON_KEY, payload);
+    } catch {
+      // 忽略存储失败
+    }
+  };
+
+  const triggerPlaybackRecovery = (reason: string, delayMs: number = 900) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (manualPauseIntentRef.current) return;
+    if (!isPlayingRef.current) return;
+
+    clearPlaybackRecoveryTimer();
+    playbackRecoveryTimerRef.current = window.setTimeout(() => {
+      playbackRecoveryTimerRef.current = null;
+      const currentAudio = audioRef.current;
+      if (!currentAudio) return;
+      if (manualPauseIntentRef.current) return;
+      if (!currentAudio.paused) return;
+
+      logRecoveryReason(reason);
+      setIsPlaying(true);
+    }, delayMs);
   };
 
   const clearSwitchingTrackGuard = () => {
@@ -538,6 +590,7 @@ const App: React.FC = () => {
       clearScheduledSyncTimers();
       clearSyncNoticeTimer();
       clearSwitchingTrackGuard();
+      clearPlaybackRecoveryTimer();
       if (playbackKeepAliveTimerRef.current !== null) {
         window.clearInterval(playbackKeepAliveTimerRef.current);
         playbackKeepAliveTimerRef.current = null;
@@ -554,6 +607,7 @@ const App: React.FC = () => {
       return;
     }
 
+    logRecoveryReason('interrupt_resume');
     setIsPlaying(true);
   };
 
@@ -561,11 +615,13 @@ const App: React.FC = () => {
     if (isPlaying) {
       manualPauseIntentRef.current = true;
       resumeAfterInterruptRef.current = false;
+      clearPlaybackRecoveryTimer();
       setIsPlaying(false);
       clearScheduledSyncTimers();
       return;
     }
     manualPauseIntentRef.current = false;
+    clearPlaybackRecoveryTimer();
     if (syncMode) {
       scheduleSyncedStart(currentTrack.durationMs);
       return;
@@ -588,6 +644,38 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let removed = false;
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+
+    const setup = async () => {
+      appStateListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) return;
+        if (removed) return;
+
+        const audio = audioRef.current;
+        if (!audio) return;
+        if (!isPlayingRef.current) return;
+        if (!audio.paused) return;
+        if (manualPauseIntentRef.current) return;
+
+        logRecoveryReason('capacitor_app_foreground');
+        setIsPlaying(true);
+      });
+    };
+
+    void setup();
+
+    return () => {
+      removed = true;
+      if (appStateListener) {
+        void appStateListener.remove();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (playbackKeepAliveTimerRef.current !== null) {
       window.clearInterval(playbackKeepAliveTimerRef.current);
       playbackKeepAliveTimerRef.current = null;
@@ -598,11 +686,12 @@ const App: React.FC = () => {
     playbackKeepAliveTimerRef.current = window.setInterval(() => {
       const audio = audioRef.current;
       if (!audio) return;
-      if (!isPlaying) return;
+      if (!isPlayingRef.current) return;
       if (!audio.paused) return;
       if (manualPauseIntentRef.current) return;
       if (isSwitchingTrackRef.current) return;
 
+      logRecoveryReason('keepalive_paused_detected');
       setIsPlaying(true);
     }, 5000);
 
@@ -815,6 +904,7 @@ const App: React.FC = () => {
           clearSwitchingTrackGuard();
           resumeAfterInterruptRef.current = false;
           manualPauseIntentRef.current = false;
+          clearPlaybackRecoveryTimer();
           setIsPlaying(true);
 
           if (syncModeRef.current) {
@@ -824,6 +914,18 @@ const App: React.FC = () => {
               runSyncDriftCorrection(currentTrack.durationMs);
             }, 180);
           }
+        }}
+        onPlaying={() => {
+          clearPlaybackRecoveryTimer();
+        }}
+        onWaiting={() => {
+          triggerPlaybackRecovery('audio_waiting', 900);
+        }}
+        onStalled={() => {
+          triggerPlaybackRecovery('audio_stalled', 1000);
+        }}
+        onSuspend={() => {
+          triggerPlaybackRecovery('audio_suspend', 1300);
         }}
         onPause={() => {
           if (isSwitchingTrackRef.current) return;
@@ -838,9 +940,18 @@ const App: React.FC = () => {
             resumeAfterInterruptRef.current = true;
           }
 
+          if (!manualPauseIntentRef.current && isPlayingRef.current) {
+            triggerPlaybackRecovery('pause_autorecover', 800);
+          } else {
+            clearPlaybackRecoveryTimer();
+          }
+
           setIsPlaying(false);
         }}
-        onError={(e) => console.error("Audio error:", e)}
+        onError={(e) => {
+          console.error('Audio error:', e);
+          triggerPlaybackRecovery('audio_error', 1200);
+        }}
         crossOrigin="anonymous"
         loop={playbackMode === PlaybackMode.SINGLE_LOOP || isTaskActive}
       />
