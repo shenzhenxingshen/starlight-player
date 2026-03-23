@@ -167,20 +167,20 @@ const Player: React.FC<PlayerProps> = ({
           </div>
         )}
 
-        <div className="w-full max-w-[240px] flex items-center justify-center gap-10 -mt-2 mb-1">
+        <div className="w-full max-w-[340px] flex items-center justify-between px-2">
           <button
             onClick={onPrev}
-            className="w-11 h-11 rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10"
+            className="w-12 h-12 rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10"
             aria-label="上一曲"
           >
-            <span className="material-symbols-outlined text-[34px]">chevron_left</span>
+            <span className="material-symbols-outlined text-[38px]">chevron_left</span>
           </button>
           <button
             onClick={onNext}
-            className="w-11 h-11 rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10"
+            className="w-12 h-12 rounded-full flex items-center justify-center text-gold-main/70 hover:text-gold-light hover:bg-white/5 active:scale-90 transition-all border border-white/10"
             aria-label="下一曲"
           >
-            <span className="material-symbols-outlined text-[34px]">chevron_right</span>
+            <span className="material-symbols-outlined text-[38px]">chevron_right</span>
           </button>
         </div>
 
