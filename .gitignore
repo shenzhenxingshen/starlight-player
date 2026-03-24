@@ -48,6 +48,7 @@ build.log
 .joycode/
 migrated_prompt_history/
 temp_icon/
+.claude/
 
 # --- publish hygiene ---
 .env
@@ -61,3 +62,4 @@ build.log
 .joycode/
 migrated_prompt_history/
 temp_icon/
+.claude/
