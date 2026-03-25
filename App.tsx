@@ -121,6 +121,10 @@ const App: React.FC = () => {
   }, [syncMode]);
 
   useEffect(() => {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify({ isLargeText }));
+  }, [isLargeText]);
+
+  useEffect(() => {
     syncModeRef.current = syncMode;
   }, [syncMode]);
 
@@ -334,6 +338,7 @@ const App: React.FC = () => {
 
   // 使用 audio.loop + 时间回绕检测计次
   const lastTimeRef = useRef(0);
+  const lastWrapDetectedAtRef = useRef(0);
   const lastManualSeekAtRef = useRef(0);
   const pendingSyncDurationMsRef = useRef<number | null>(null);
   const pendingSyncAutoplayRef = useRef(false);
@@ -364,6 +369,7 @@ const App: React.FC = () => {
       if (next) {
         if (isTaskActive) {
           stopTask();
+          setIsPlaying(false);
         }
         setPlaybackRate(1.0);
       } else {
@@ -753,6 +759,12 @@ const App: React.FC = () => {
 
       const isManualSeekWindow = Date.now() - lastManualSeekAtRef.current < 1500;
       if (crossed && !isManualSeekWindow) {
+        const now = Date.now();
+        if (now - lastWrapDetectedAtRef.current < 2000) {
+          lastTimeRef.current = t;
+          return;
+        }
+        lastWrapDetectedAtRef.current = now;
         if (isTaskActive) {
           if (syncMode) {
             // 策略B：同步任务从0开始，首次完整回绕计为1
@@ -809,6 +821,7 @@ const App: React.FC = () => {
       if (isSwitchingTrackRef.current) return;
       clearResumeSyncAlignTimer();
       if (!manualPauseIntentRef.current && isPlayingRef.current) {
+        resumeAfterInterruptRef.current = true;
         triggerPlaybackRecovery('pause_autorecover', 800);
       } else {
         clearPlaybackRecoveryTimer();
@@ -821,6 +834,7 @@ const App: React.FC = () => {
   useEffect(() => {
     lastTimeRef.current = 0;
     lastManualSeekAtRef.current = 0;
+    lastWrapDetectedAtRef.current = 0;
   }, [playbackMode, isTaskActive, currentTrack.id, taskTarget]);
 
   // 任务中切曲：继承目标遍数并按模式重启任务
@@ -906,7 +920,7 @@ const App: React.FC = () => {
             onNext={handleNext}
             onPrev={handlePrev}
             onUpdateTarget={handleUpdateTarget}
-            onStopTask={stopTask}
+            onStopTask={() => { stopTask(); setIsPlaying(false); }}
             taskProgress={taskProgress}
             taskTarget={taskTarget}
             currentTime={currentTime}

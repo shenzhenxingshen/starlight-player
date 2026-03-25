@@ -117,6 +117,12 @@ export const useAudioPlayer = (currentTrack: Track) => {
       el.addEventListener('ended', () => {
         if (onCompleteRef.current) onCompleteRef.current();
       });
+      el.addEventListener('play', () => {
+        if (onPlayRef.current) onPlayRef.current();
+      });
+      el.addEventListener('pause', () => {
+        if (onPauseRef.current) onPauseRef.current();
+      });
       webAudioRef.current = el;
     }
     return webAudioRef.current;

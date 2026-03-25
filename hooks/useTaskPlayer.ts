@@ -60,12 +60,6 @@ export const useTaskPlayer = (
     const audio = getAudio();
     if (audio) {
       audio.currentTime = Math.max(startAtSec, 0);
-      if (autoplay) {
-        audio.play().catch(() => {});
-      } else {
-        audio.pause();
-        setIsPlaying(false);
-      }
     }
   };
 
@@ -73,12 +67,6 @@ export const useTaskPlayer = (
     setTaskTarget(0);
     setTaskProgress(0);
     setPlaybackMode(PlaybackMode.SINGLE_LOOP);
-    const audio = getAudio();
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-    setIsPlaying(false);
   };
 
   const handleEnded = () => {
