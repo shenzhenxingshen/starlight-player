@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [zenQuote, setZenQuote] = useState<ZenQuote>(getZenQuote());
   const [showMerit, setShowMerit] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [lastRecoveryReason, setLastRecoveryReason] = useState<string | null>(() => {
     try {
@@ -96,6 +97,7 @@ const App: React.FC = () => {
     onPlayRef,
     onPauseRef,
     audioEngine,
+    audioLogs,
   } = useAudioPlayer(currentTrack);
 
   const [stats, setStats] = useState(() => {
@@ -943,12 +945,53 @@ const App: React.FC = () => {
 
       <BottomNav activeView={view} onViewChange={setView} />
 
-      {/* 音频引擎状态指示 */}
-      <div className="fixed top-1 right-1 z-50 px-2 py-0.5 rounded text-[9px] font-mono opacity-60" style={{
-        background: audioEngine === 'native' ? '#1b5e20' : audioEngine === 'web' ? '#b71c1c' : '#555',
-        color: '#fff'
-      }}>
-        {audioEngine === 'native' ? '🟢 原生' : audioEngine === 'web' ? '🔴 Web' : '⏳ 初始化'}
+      {/* 音频引擎状态指示 + 调试面板 */}
+      <div className="fixed top-1 right-1 z-50" style={{ maxWidth: showDebugPanel ? '92vw' : 'auto' }}>
+        <div
+          onClick={() => setShowDebugPanel(p => !p)}
+          className="px-2 py-0.5 rounded text-[9px] font-mono cursor-pointer"
+          style={{
+            background: audioEngine === 'native' ? '#1b5e20' : audioEngine === 'web' ? '#b71c1c' : '#555',
+            color: '#fff', opacity: 0.8
+          }}
+        >
+          {audioEngine === 'native' ? '🟢 原生' : audioEngine === 'web' ? '🔴 Web' : '⏳ 初始化'}
+          {showDebugPanel ? ' ▲' : ' ▼'}
+        </div>
+        {showDebugPanel && (
+          <div
+            className="mt-1 rounded-lg overflow-hidden"
+            style={{ background: 'rgba(0,0,0,0.9)', border: '1px solid #333', maxHeight: '50vh', overflowY: 'auto' }}
+          >
+            <div className="flex justify-between items-center px-2 py-1" style={{ borderBottom: '1px solid #333' }}>
+              <span className="text-[10px] text-gray-400 font-mono">音频引擎日志</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const text = audioLogs.join('\n');
+                  if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text);
+                  }
+                }}
+                className="text-[10px] px-2 py-0.5 rounded"
+                style={{ background: '#333', color: '#4fc3f7' }}
+              >
+                复制日志
+              </button>
+            </div>
+            <div className="px-2 py-1">
+              {audioLogs.length === 0 ? (
+                <p className="text-[10px] text-gray-500 font-mono py-2">暂无日志</p>
+              ) : (
+                audioLogs.map((log, i) => (
+                  <p key={i} className="text-[10px] font-mono leading-relaxed" style={{
+                    color: log.includes('❌') ? '#ef5350' : log.includes('⚠️') ? '#ffa726' : log.includes('✅') ? '#66bb6a' : '#bbb'
+                  }}>{log}</p>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {syncNotice && (

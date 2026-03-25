@@ -58,6 +58,14 @@ export const useAudioPlayer = (currentTrack: Track) => {
   const isNativeReady = useRef(false);
   const useNativeRef = useRef(IS_NATIVE && !_nativeAudioFailed);
   const [audioEngine, setAudioEngine] = useState<'native' | 'web' | 'init'>(IS_NATIVE ? 'init' : 'web');
+  const [audioLogs, setAudioLogs] = useState<string[]>([]);
+
+  const addLog = (msg: string) => {
+    const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    const line = `[${ts}] ${msg}`;
+    setAudioLogs(prev => [...prev.slice(-29), line]); // 保留最近 30 条
+    console.log('[AudioEngine]', msg);
+  };
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -99,7 +107,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
   };
 
   const fallbackToWeb = () => {
-    console.warn('NativeAudio unavailable, falling back to web audio');
+    addLog('⚠️ NativeAudio不可用，降级到Web音频');
     _nativeAudioFailed = true;
     useNativeRef.current = false;
     setAudioEngine('web');
@@ -149,16 +157,17 @@ export const useAudioPlayer = (currentTrack: Track) => {
 
         isNativeReady.current = true;
         setAudioEngine('native');
+        addLog('✅ NativeAudio初始化成功');
 
         // 加载初始曲目
         try {
           await doLoadTrackNative(currentTrack);
         } catch (e) {
-          console.error('Initial track load failed, falling back to web:', e);
+          addLog('❌ 初始曲目加载失败: ' + String(e));
           fallbackToWeb();
         }
       } catch (e) {
-        console.error('NativeAudio init failed:', e);
+        addLog('❌ NativeAudio初始化失败: ' + String(e));
         fallbackToWeb();
       }
     })();
@@ -198,6 +207,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
     loadedTrackRef.current = track.id;
 
     await NativeAudio.loop({ assetId: ASSET_ID, isLooping: true }).catch(() => {});
+    addLog('✅ 曲目已加载: ' + track.title);
   };
 
   // ── 切曲 ──
@@ -221,7 +231,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
         await doLoadTrackNative(currentTrack);
         if (isPlaying) await doPlayNative();
       } catch (e) {
-        console.error('Track load failed, falling back:', e);
+        addLog('❌ 曲目加载失败: ' + String(e));
         fallbackToWeb();
         if (isPlaying) ensureWebAudio().play().catch(() => {});
       }
@@ -236,10 +246,11 @@ export const useAudioPlayer = (currentTrack: Track) => {
     try {
       await NativeAudio.play({ assetId: ASSET_ID });
     } catch (e) {
-      console.error('NativeAudio play failed:', e);
+      addLog('❌ 播放失败: ' + String(e));
     }
     proxyRef.current.paused = false;
     if (onPlayRef.current) onPlayRef.current();
+    addLog('▶️ 播放中');
   };
 
   const doPauseNative = async () => {
@@ -320,7 +331,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
   return {
     audioRef, isPlaying, setIsPlaying, currentTime, duration,
     volume, setVolume, playbackRate, setPlaybackRate,
-    togglePlay, seek, handleTimeUpdate, audioEngine,
+    togglePlay, seek, handleTimeUpdate, audioEngine, audioLogs,
     onTimeUpdateRef, onCompleteRef, onPlayRef, onPauseRef, onErrorRef,
   };
 };
