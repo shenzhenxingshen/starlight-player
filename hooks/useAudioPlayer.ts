@@ -60,11 +60,27 @@ export const useAudioPlayer = (currentTrack: Track) => {
   const [audioEngine, setAudioEngine] = useState<'native' | 'web' | 'init'>(IS_NATIVE ? 'init' : 'web');
   const [audioLogs, setAudioLogs] = useState<string[]>([]);
 
+  const safeTimeLabel = () => {
+    try {
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
+    } catch {
+      return String(Date.now());
+    }
+  };
+
   const addLog = (msg: string) => {
-    const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-    const line = `[${ts}] ${msg}`;
-    setAudioLogs(prev => [...prev.slice(-29), line]); // 保留最近 30 条
-    console.log('[AudioEngine]', msg);
+    try {
+      const ts = safeTimeLabel();
+      const line = `[${ts}] ${msg}`;
+      setAudioLogs(prev => [...prev.slice(-29), line]);
+    } catch {}
+    try {
+      console.log('[AudioEngine]', msg);
+    } catch {}
   };
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -107,9 +123,10 @@ export const useAudioPlayer = (currentTrack: Track) => {
   };
 
   const fallbackToWeb = () => {
-    addLog('⚠️ NativeAudio不可用，降级到Web音频');
+    try { addLog('⚠️ NativeAudio不可用，降级到Web音频'); } catch {}
     _nativeAudioFailed = true;
     useNativeRef.current = false;
+    isNativeReady.current = false;
     setAudioEngine('web');
     const el = ensureWebAudio();
     audioRef.current = el;
@@ -124,7 +141,6 @@ export const useAudioPlayer = (currentTrack: Track) => {
   // ── 初始化 NativeAudio ──
   useEffect(() => {
     if (!IS_NATIVE) {
-      // Web 环境直接用 web audio
       useNativeRef.current = false;
       const el = ensureWebAudio();
       audioRef.current = el;
@@ -132,16 +148,24 @@ export const useAudioPlayer = (currentTrack: Track) => {
     }
 
     let cancelled = false;
+    const INIT_TIMEOUT = 6000;
+    let watchdogTimer: number | null = null;
+
+    const raceTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`${label}超时(${ms}ms)`)), ms))]);
+
     (async () => {
       try {
-        const NativeAudio = await getNativeAudio();
+        addLog('🔄 开始加载NativeAudio模块...');
+        const NativeAudio = await raceTimeout(getNativeAudio(), INIT_TIMEOUT, 'getNativeAudio');
         if (!NativeAudio || cancelled) { fallbackToWeb(); return; }
 
-        await NativeAudio.configure({
+        addLog('🔄 NativeAudio模块已加载，开始configure...');
+        await raceTimeout(NativeAudio.configure({
           backgroundPlayback: true,
           showNotification: true,
           focus: true,
-        });
+        }), INIT_TIMEOUT, 'configure');
 
         NativeAudio.addListener('currentTime', (event: any) => {
           if (cancelled) return;
@@ -159,19 +183,34 @@ export const useAudioPlayer = (currentTrack: Track) => {
         setAudioEngine('native');
         addLog('✅ NativeAudio初始化成功');
 
-        // 加载初始曲目
         try {
-          await doLoadTrackNative(currentTrack);
+          addLog('🔄 开始加载初始曲目...');
+          await raceTimeout(doLoadTrackNative(currentTrack), INIT_TIMEOUT, 'preload');
         } catch (e) {
           addLog('❌ 初始曲目加载失败: ' + String(e));
           fallbackToWeb();
         }
       } catch (e) {
-        addLog('❌ NativeAudio初始化失败: ' + String(e));
         fallbackToWeb();
+        try { addLog('❌ NativeAudio初始化失败: ' + String(e)); } catch {}
       }
     })();
-    return () => { cancelled = true; };
+
+    watchdogTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      if (!isNativeReady.current && useNativeRef.current) {
+        fallbackToWeb();
+        try { addLog('⚠️ 初始化超时，已强制降级到Web音频'); } catch {}
+      }
+    }, INIT_TIMEOUT + 2000);
+
+    return () => {
+      cancelled = true;
+      if (watchdogTimer !== null) {
+        window.clearTimeout(watchdogTimer);
+        watchdogTimer = null;
+      }
+    };
   }, []);
 
   // ── Native 加载曲目 ──
