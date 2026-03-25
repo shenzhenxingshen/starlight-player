@@ -6,10 +6,18 @@ const IS_NATIVE = Capacitor.isNativePlatform();
 const ASSET_ID = 'current_track';
 
 let _nativeAudio: any = null;
+let _nativeAudioFailed = false; // 标记原生音频是否不可用，降级到 web
+
 const getNativeAudio = async () => {
+  if (_nativeAudioFailed) return null;
   if (!_nativeAudio) {
-    const mod = await import('@capgo/native-audio');
-    _nativeAudio = mod.NativeAudio;
+    try {
+      const mod = await import('@capgo/native-audio');
+      _nativeAudio = mod.NativeAudio;
+    } catch {
+      _nativeAudioFailed = true;
+      return null;
+    }
   }
   return _nativeAudio;
 };
@@ -17,17 +25,20 @@ const getNativeAudio = async () => {
 function createAudioProxy() {
   let _currentTime = 0;
   let _playbackRate = 1.0;
-
   return {
     get currentTime() { return _currentTime; },
     set currentTime(v: number) {
       _currentTime = v;
-      getNativeAudio().then(na => na.setCurrentTime({ assetId: ASSET_ID, time: v }).catch(() => {}));
+      if (!_nativeAudioFailed) {
+        getNativeAudio().then(na => na?.setCurrentTime({ assetId: ASSET_ID, time: v }).catch(() => {}));
+      }
     },
     get playbackRate() { return _playbackRate; },
     set playbackRate(v: number) {
       _playbackRate = v;
-      getNativeAudio().then(na => na.setRate({ assetId: ASSET_ID, rate: v }).catch(() => {}));
+      if (!_nativeAudioFailed) {
+        getNativeAudio().then(na => na?.setRate({ assetId: ASSET_ID, rate: v }).catch(() => {}));
+      }
     },
     duration: 0,
     paused: true,
@@ -40,26 +51,23 @@ function createAudioProxy() {
 
 export const useAudioPlayer = (currentTrack: Track) => {
   const proxyRef = useRef(createAudioProxy());
+  const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  // audioRef 对外暴露：原生模式用 proxy，web 模式用 HTMLAudioElement
   const audioRef = useRef<any>(proxyRef.current);
   const loadedTrackRef = useRef<string | null>(null);
   const isNativeReady = useRef(false);
-  const pendingTrackRef = useRef<Track | null>(null);
-  const pendingPlayRef = useRef(false);
+  const useNativeRef = useRef(IS_NATIVE && !_nativeAudioFailed);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
-    try {
-      const saved = localStorage.getItem('zen_chant_volume');
-      return saved ? JSON.parse(saved) : 0.65;
-    } catch { return 0.65; }
+    try { return JSON.parse(localStorage.getItem('zen_chant_volume') || '0.65'); }
+    catch { return 0.65; }
   });
   const [playbackRate, setPlaybackRate] = useState(() => {
-    try {
-      const saved = localStorage.getItem('zen_chant_playback_rate');
-      return saved ? JSON.parse(saved) : 1.0;
-    } catch { return 1.0; }
+    try { return JSON.parse(localStorage.getItem('zen_chant_playback_rate') || '1.0'); }
+    catch { return 1.0; }
   });
 
   const onTimeUpdateRef = useRef<(() => void) | null>(null);
@@ -68,71 +76,57 @@ export const useAudioPlayer = (currentTrack: Track) => {
   const onPauseRef = useRef<(() => void) | null>(null);
   const onErrorRef = useRef<((e: any) => void) | null>(null);
 
-  // ── 加载曲目（内部函数，不依赖 state） ──
-  const doLoadTrack = async (track: Track) => {
-    const NativeAudio = await getNativeAudio();
-
-    if (loadedTrackRef.current) {
-      try { await NativeAudio.stop({ assetId: ASSET_ID }); } catch {}
-      try { await NativeAudio.unload({ assetId: ASSET_ID }); } catch {}
+  // ── Web Audio 辅助 ──
+  const ensureWebAudio = () => {
+    if (!webAudioRef.current) {
+      const el = new Audio();
+      el.loop = true;
+      el.addEventListener('timeupdate', () => {
+        const proxy = proxyRef.current;
+        proxy._updateTime(el.currentTime);
+        proxy.duration = el.duration || 0;
+        setCurrentTime(el.currentTime);
+        setDuration(el.duration || 0);
+        if (onTimeUpdateRef.current) onTimeUpdateRef.current();
+      });
+      el.addEventListener('ended', () => {
+        if (onCompleteRef.current) onCompleteRef.current();
+      });
+      webAudioRef.current = el;
     }
-
-    // NativeAudio 自动加 "public/" 前缀，所以传 "assets/audio/..." 即可
-    const assetPath = track.audioUrl.startsWith('/')
-      ? track.audioUrl.substring(1)  // "/assets/audio/..." → "assets/audio/..."
-      : track.audioUrl;
-
-    await NativeAudio.preload({
-      assetId: ASSET_ID,
-      assetPath,
-      isUrl: false,
-      volume: proxyRef.current.volume,
-      notificationMetadata: {
-        title: track.title,
-        artist: '星光播放器',
-      },
-    });
-
-    const { duration: dur } = await NativeAudio.getDuration({ assetId: ASSET_ID });
-    const proxy = proxyRef.current;
-    proxy.duration = dur || 0;
-    proxy._updateTime(0);
-    proxy.paused = true;
-    setDuration(dur || 0);
-    setCurrentTime(0);
-    loadedTrackRef.current = track.id;
-
-    await NativeAudio.loop({ assetId: ASSET_ID, isLooping: true }).catch(() => {});
+    return webAudioRef.current;
   };
 
-  // ── 播放（内部函数） ──
-  const doPlay = async () => {
-    if (!loadedTrackRef.current) return;
-    const NativeAudio = await getNativeAudio();
-    try {
-      await NativeAudio.resume({ assetId: ASSET_ID });
-    } catch {
-      try { await NativeAudio.play({ assetId: ASSET_ID }); } catch {}
-    }
-    proxyRef.current.paused = false;
-    if (onPlayRef.current) onPlayRef.current();
-  };
-
-  const doPause = async () => {
-    if (!loadedTrackRef.current) return;
-    const NativeAudio = await getNativeAudio();
-    try { await NativeAudio.pause({ assetId: ASSET_ID }); } catch {}
-    proxyRef.current.paused = true;
-    if (onPauseRef.current) onPauseRef.current();
+  const fallbackToWeb = () => {
+    console.warn('NativeAudio unavailable, falling back to web audio');
+    _nativeAudioFailed = true;
+    useNativeRef.current = false;
+    const el = ensureWebAudio();
+    audioRef.current = el;
+    // 加载当前曲目
+    el.src = currentTrack.audioUrl;
+    el.volume = volume;
+    el.playbackRate = playbackRate;
+    el.load();
+    loadedTrackRef.current = currentTrack.id;
   };
 
   // ── 初始化 NativeAudio ──
   useEffect(() => {
-    if (!IS_NATIVE) return;
+    if (!IS_NATIVE) {
+      // Web 环境直接用 web audio
+      useNativeRef.current = false;
+      const el = ensureWebAudio();
+      audioRef.current = el;
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       try {
         const NativeAudio = await getNativeAudio();
+        if (!NativeAudio || cancelled) { fallbackToWeb(); return; }
+
         await NativeAudio.configure({
           backgroundPlayback: true,
           showNotification: true,
@@ -153,124 +147,149 @@ export const useAudioPlayer = (currentTrack: Track) => {
 
         isNativeReady.current = true;
 
-        // 处理初始化期间积压的加载请求
-        const pending = pendingTrackRef.current;
-        if (pending) {
-          pendingTrackRef.current = null;
-          await doLoadTrack(pending);
-          if (pendingPlayRef.current) {
-            pendingPlayRef.current = false;
-            await doPlay();
-          }
+        // 加载初始曲目
+        try {
+          await doLoadTrackNative(currentTrack);
+        } catch (e) {
+          console.error('Initial track load failed, falling back to web:', e);
+          fallbackToWeb();
         }
       } catch (e) {
-        console.warn('NativeAudio init failed:', e);
+        console.error('NativeAudio init failed:', e);
+        fallbackToWeb();
       }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  // ── 切曲时加载 ──
+  // ── Native 加载曲目 ──
+  const doLoadTrackNative = async (track: Track) => {
+    const NativeAudio = await getNativeAudio();
+    if (!NativeAudio) throw new Error('NativeAudio not available');
+
+    if (loadedTrackRef.current) {
+      try { await NativeAudio.stop({ assetId: ASSET_ID }); } catch {}
+      try { await NativeAudio.unload({ assetId: ASSET_ID }); } catch {}
+      loadedTrackRef.current = null;
+    }
+
+    // NativeAudio 自动加 "public/" 前缀
+    const assetPath = track.audioUrl.startsWith('/')
+      ? track.audioUrl.substring(1)
+      : track.audioUrl;
+
+    await NativeAudio.preload({
+      assetId: ASSET_ID,
+      assetPath,
+      isUrl: false,
+      volume: proxyRef.current.volume,
+      notificationMetadata: { title: track.title, artist: '星光播放器' },
+    });
+
+    const { duration: dur } = await NativeAudio.getDuration({ assetId: ASSET_ID });
+    proxyRef.current.duration = dur || 0;
+    proxyRef.current._updateTime(0);
+    proxyRef.current.paused = true;
+    setDuration(dur || 0);
+    setCurrentTime(0);
+    loadedTrackRef.current = track.id;
+
+    await NativeAudio.loop({ assetId: ASSET_ID, isLooping: true }).catch(() => {});
+  };
+
+  // ── 切曲 ──
   useEffect(() => {
-    if (!IS_NATIVE) return;
-    if (!isNativeReady.current) {
-      // 初始化还没完成，先记下来
-      pendingTrackRef.current = currentTrack;
+    if (!useNativeRef.current) {
+      // Web 模式
+      const el = ensureWebAudio();
+      el.src = currentTrack.audioUrl;
+      el.volume = volume;
+      el.playbackRate = playbackRate;
+      el.load();
+      loadedTrackRef.current = currentTrack.id;
+      if (isPlaying) el.play().catch(() => {});
       return;
     }
+
+    if (!isNativeReady.current) return; // 初始化中，由初始化完成后加载
+
     (async () => {
-      await doLoadTrack(currentTrack);
-      // 如果切曲时正在播放，加载完自动播放
-      if (isPlaying) {
-        await doPlay();
+      try {
+        await doLoadTrackNative(currentTrack);
+        if (isPlaying) await doPlayNative();
+      } catch (e) {
+        console.error('Track load failed, falling back:', e);
+        fallbackToWeb();
+        if (isPlaying) ensureWebAudio().play().catch(() => {});
       }
     })();
   }, [currentTrack.id]);
 
-  // ── 播放/暂停 ──
+  // ── Native 播放/暂停 ──
+  const doPlayNative = async () => {
+    if (!loadedTrackRef.current) return;
+    const NativeAudio = await getNativeAudio();
+    if (!NativeAudio) return;
+    try {
+      await NativeAudio.play({ assetId: ASSET_ID });
+    } catch (e) {
+      console.error('NativeAudio play failed:', e);
+    }
+    proxyRef.current.paused = false;
+    if (onPlayRef.current) onPlayRef.current();
+  };
+
+  const doPauseNative = async () => {
+    if (!loadedTrackRef.current) return;
+    const NativeAudio = await getNativeAudio();
+    if (!NativeAudio) return;
+    try { await NativeAudio.pause({ assetId: ASSET_ID }); } catch {}
+    proxyRef.current.paused = true;
+    if (onPauseRef.current) onPauseRef.current();
+  };
+
+  // ── 播放/暂停 effect ──
   useEffect(() => {
-    if (!IS_NATIVE) return;
-    if (!isNativeReady.current || !loadedTrackRef.current) {
-      // 还没准备好，记下播放意图
-      if (isPlaying) pendingPlayRef.current = true;
+    if (!useNativeRef.current) {
+      const el = webAudioRef.current;
+      if (!el) return;
+      if (isPlaying) el.play().catch(() => {});
+      else el.pause();
       return;
     }
-    if (isPlaying) {
-      doPlay();
-    } else {
-      doPause();
-    }
+
+    if (!isNativeReady.current || !loadedTrackRef.current) return;
+    if (isPlaying) doPlayNative();
+    else doPauseNative();
   }, [isPlaying]);
 
   // ── 音量 ──
   useEffect(() => {
     localStorage.setItem('zen_chant_volume', JSON.stringify(volume));
     proxyRef.current.volume = volume;
-    if (!IS_NATIVE || !loadedTrackRef.current) return;
-    getNativeAudio().then(na => na.setVolume({ assetId: ASSET_ID, volume }).catch(() => {}));
+    if (webAudioRef.current) webAudioRef.current.volume = volume;
+    if (useNativeRef.current && loadedTrackRef.current) {
+      getNativeAudio().then(na => na?.setVolume({ assetId: ASSET_ID, volume }).catch(() => {}));
+    }
   }, [volume]);
 
   // ── 播放速率 ──
   useEffect(() => {
     localStorage.setItem('zen_chant_playback_rate', JSON.stringify(playbackRate));
     proxyRef.current._updateRate(playbackRate);
-    if (!IS_NATIVE || !loadedTrackRef.current) return;
-    getNativeAudio().then(na => na.setRate({ assetId: ASSET_ID, rate: playbackRate }).catch(() => {}));
-  }, [playbackRate]);
-
-  // ── Web 降级 ──
-  const webAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    if (IS_NATIVE) return;
-    if (!webAudioRef.current) {
-      const el = new Audio();
-      el.loop = true;
-      webAudioRef.current = el;
-      audioRef.current = el;
+    if (webAudioRef.current) webAudioRef.current.playbackRate = playbackRate;
+    if (useNativeRef.current && loadedTrackRef.current) {
+      getNativeAudio().then(na => na?.setRate({ assetId: ASSET_ID, rate: playbackRate }).catch(() => {}));
     }
-    const el = webAudioRef.current;
-    el.src = currentTrack.audioUrl;
-    el.volume = volume;
-    el.playbackRate = playbackRate;
-    el.load();
-  }, [currentTrack.id]);
-
-  useEffect(() => {
-    if (IS_NATIVE || !webAudioRef.current) return;
-    if (isPlaying) { webAudioRef.current.play().catch(() => {}); }
-    else { webAudioRef.current.pause(); }
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (IS_NATIVE || !webAudioRef.current) return;
-    webAudioRef.current.volume = volume;
-  }, [volume]);
-
-  useEffect(() => {
-    if (IS_NATIVE || !webAudioRef.current) return;
-    webAudioRef.current.playbackRate = playbackRate;
   }, [playbackRate]);
-
-  useEffect(() => {
-    if (IS_NATIVE || !webAudioRef.current) return;
-    const el = webAudioRef.current;
-    const handler = () => {
-      setCurrentTime(el.currentTime);
-      setDuration(el.duration || 0);
-      if (onTimeUpdateRef.current) onTimeUpdateRef.current();
-    };
-    el.addEventListener('timeupdate', handler);
-    return () => el.removeEventListener('timeupdate', handler);
-  }, [currentTrack.id]);
 
   // ── 清理 ──
   useEffect(() => {
     return () => {
-      if (IS_NATIVE && loadedTrackRef.current) {
+      if (useNativeRef.current && loadedTrackRef.current) {
         getNativeAudio().then(na => {
-          na.stop({ assetId: ASSET_ID }).catch(() => {});
-          na.unload({ assetId: ASSET_ID }).catch(() => {});
+          na?.stop({ assetId: ASSET_ID }).catch(() => {});
+          na?.unload({ assetId: ASSET_ID }).catch(() => {});
         });
       }
       if (webAudioRef.current) {
@@ -284,10 +303,11 @@ export const useAudioPlayer = (currentTrack: Track) => {
 
   const seek = (time: number) => {
     setCurrentTime(time);
-    if (IS_NATIVE) {
-      proxyRef.current._updateTime(time);
-      getNativeAudio().then(na => na.setCurrentTime({ assetId: ASSET_ID, time }).catch(() => {}));
-    } else if (webAudioRef.current) {
+    proxyRef.current._updateTime(time);
+    if (useNativeRef.current) {
+      getNativeAudio().then(na => na?.setCurrentTime({ assetId: ASSET_ID, time }).catch(() => {}));
+    }
+    if (webAudioRef.current && !useNativeRef.current) {
       webAudioRef.current.currentTime = time;
     }
   };
