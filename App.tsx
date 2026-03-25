@@ -15,7 +15,7 @@ import { useTaskPlayer } from './hooks/useTaskPlayer';
 import { FEATURE_FLAGS } from './constants/featureFlags';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { startPlaybackService, stopPlaybackService } from './services/foregroundService';
+import { startPlaybackService, scheduleStopPlaybackService, forceStopPlaybackService } from './services/foregroundService';
 
 const STATS_KEY = 'zen_chant_user_stats';
 const CONFIG_KEY = 'zen_chant_config';
@@ -122,7 +122,7 @@ const App: React.FC = () => {
     if (isPlaying) {
       startPlaybackService();
     } else {
-      stopPlaybackService();
+      scheduleStopPlaybackService();
     }
   }, [isPlaying]);
 
@@ -597,6 +597,7 @@ const App: React.FC = () => {
       clearSyncNoticeTimer();
       clearSwitchingTrackGuard();
       clearPlaybackRecoveryTimer();
+      forceStopPlaybackService();
       if (playbackKeepAliveTimerRef.current !== null) {
         window.clearInterval(playbackKeepAliveTimerRef.current);
         playbackKeepAliveTimerRef.current = null;
