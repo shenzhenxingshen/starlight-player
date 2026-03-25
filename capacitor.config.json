@@ -13,6 +13,9 @@
       "showSpinner": false,
       "androidScaleType": "CENTER_CROP",
       "splashImmersive": true
+    },
+    "NativeAudio": {
+      "hls": false
     }
   }
 }

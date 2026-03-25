@@ -90,7 +90,11 @@ const App: React.FC = () => {
     playbackRate,
     setPlaybackRate,
     seek,
-    handleTimeUpdate
+    handleTimeUpdate,
+    onTimeUpdateRef,
+    onCompleteRef,
+    onPlayRef,
+    onPauseRef,
   } = useAudioPlayer(currentTrack);
 
   const [stats, setStats] = useState(() => {
@@ -780,6 +784,36 @@ const App: React.FC = () => {
     lastTimeRef.current = t;
   };
 
+  // 注册 NativeAudio 回调
+  useEffect(() => {
+    onTimeUpdateRef.current = handleTaskTimeUpdate;
+    onCompleteRef.current = () => handleEnded();
+    onPlayRef.current = () => {
+      clearSwitchingTrackGuard();
+      resumeAfterInterruptRef.current = false;
+      manualPauseIntentRef.current = false;
+      clearPlaybackRecoveryTimer();
+      setIsPlaying(true);
+      if (syncModeRef.current) {
+        clearResumeSyncAlignTimer();
+        resumeSyncAlignTimerRef.current = window.setTimeout(() => {
+          resumeSyncAlignTimerRef.current = null;
+          runSyncDriftCorrection(currentTrack.durationMs);
+        }, 180);
+      }
+    };
+    onPauseRef.current = () => {
+      if (isSwitchingTrackRef.current) return;
+      clearResumeSyncAlignTimer();
+      if (!manualPauseIntentRef.current && isPlayingRef.current) {
+        triggerPlaybackRecovery('pause_autorecover', 800);
+      } else {
+        clearPlaybackRecoveryTimer();
+      }
+      setIsPlaying(false);
+    };
+  });
+
   // 模式切换/切曲/目标变化时重置回绕检测基准，避免读取旧状态
   useEffect(() => {
     lastTimeRef.current = 0;
@@ -902,66 +936,7 @@ const App: React.FC = () => {
         <div className="absolute bottom-1/4 -right-1/4 w-[150%] h-1/2 bg-gradient-to-l from-transparent via-gold-main/5 to-transparent blur-[80px] animate-smoke-flow -rotate-6 animation-delay-5000"></div>
       </div>
 
-      <audio
-        ref={audioRef}
-        src={currentTrack.audioUrl}
-        onTimeUpdate={handleTaskTimeUpdate}
-        onEnded={handleEnded}
-        onPlay={() => {
-          clearSwitchingTrackGuard();
-          resumeAfterInterruptRef.current = false;
-          manualPauseIntentRef.current = false;
-          clearPlaybackRecoveryTimer();
-          setIsPlaying(true);
-
-          if (syncModeRef.current) {
-            clearResumeSyncAlignTimer();
-            resumeSyncAlignTimerRef.current = window.setTimeout(() => {
-              resumeSyncAlignTimerRef.current = null;
-              runSyncDriftCorrection(currentTrack.durationMs);
-            }, 180);
-          }
-        }}
-        onPlaying={() => {
-          clearPlaybackRecoveryTimer();
-        }}
-        onWaiting={() => {
-          triggerPlaybackRecovery('audio_waiting', 900);
-        }}
-        onStalled={() => {
-          triggerPlaybackRecovery('audio_stalled', 1000);
-        }}
-        onSuspend={() => {
-          triggerPlaybackRecovery('audio_suspend', 1300);
-        }}
-        onPause={() => {
-          if (isSwitchingTrackRef.current) return;
-          clearResumeSyncAlignTimer();
-
-          const shouldAutoResume =
-            !manualPauseIntentRef.current &&
-            syncModeRef.current &&
-            (document.visibilityState === 'hidden' || !document.hasFocus());
-
-          if (shouldAutoResume) {
-            resumeAfterInterruptRef.current = true;
-          }
-
-          if (!manualPauseIntentRef.current && isPlayingRef.current) {
-            triggerPlaybackRecovery('pause_autorecover', 800);
-          } else {
-            clearPlaybackRecoveryTimer();
-          }
-
-          setIsPlaying(false);
-        }}
-        onError={(e) => {
-          console.error('Audio error:', e);
-          triggerPlaybackRecovery('audio_error', 1200);
-        }}
-        crossOrigin="anonymous"
-        loop={playbackMode === PlaybackMode.SINGLE_LOOP || isTaskActive}
-      />
+      {/* 原生环境使用 NativeAudio，Web 环境在 useAudioPlayer 内部创建 Audio 元素 */}
 
       {renderContent()}
 
