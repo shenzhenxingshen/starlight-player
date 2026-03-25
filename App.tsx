@@ -95,6 +95,7 @@ const App: React.FC = () => {
     onCompleteRef,
     onPlayRef,
     onPauseRef,
+    audioEngine,
   } = useAudioPlayer(currentTrack);
 
   const [stats, setStats] = useState(() => {
@@ -941,6 +942,14 @@ const App: React.FC = () => {
       {renderContent()}
 
       <BottomNav activeView={view} onViewChange={setView} />
+
+      {/* 音频引擎状态指示 */}
+      <div className="fixed top-1 right-1 z-50 px-2 py-0.5 rounded text-[9px] font-mono opacity-60" style={{
+        background: audioEngine === 'native' ? '#1b5e20' : audioEngine === 'web' ? '#b71c1c' : '#555',
+        color: '#fff'
+      }}>
+        {audioEngine === 'native' ? '🟢 原生' : audioEngine === 'web' ? '🔴 Web' : '⏳ 初始化'}
+      </div>
 
       {syncNotice && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-black/75 border border-gold-main/30 text-gold-light text-xs tracking-[0.12em] font-serif shadow-xl backdrop-blur pointer-events-none">

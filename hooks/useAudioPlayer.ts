@@ -57,6 +57,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
   const loadedTrackRef = useRef<string | null>(null);
   const isNativeReady = useRef(false);
   const useNativeRef = useRef(IS_NATIVE && !_nativeAudioFailed);
+  const [audioEngine, setAudioEngine] = useState<'native' | 'web' | 'init'>(IS_NATIVE ? 'init' : 'web');
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -101,6 +102,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
     console.warn('NativeAudio unavailable, falling back to web audio');
     _nativeAudioFailed = true;
     useNativeRef.current = false;
+    setAudioEngine('web');
     const el = ensureWebAudio();
     audioRef.current = el;
     // 加载当前曲目
@@ -146,6 +148,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
         });
 
         isNativeReady.current = true;
+        setAudioEngine('native');
 
         // 加载初始曲目
         try {
@@ -317,7 +320,7 @@ export const useAudioPlayer = (currentTrack: Track) => {
   return {
     audioRef, isPlaying, setIsPlaying, currentTime, duration,
     volume, setVolume, playbackRate, setPlaybackRate,
-    togglePlay, seek, handleTimeUpdate,
+    togglePlay, seek, handleTimeUpdate, audioEngine,
     onTimeUpdateRef, onCompleteRef, onPlayRef, onPauseRef, onErrorRef,
   };
 };
